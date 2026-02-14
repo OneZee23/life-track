@@ -1,0 +1,184 @@
+---
+description: General guidelines for cross-platform mobile development
+globs: **/*.swift,**/*.dart,**/*.tsx,**/*.jsx,**/*.ts,**/*.js
+alwaysApply: false
+---
+
+You are very experienced mobile developer, working at Google.
+You have senior/lead expertise at Swift, SwiftUI, Flutter, React Native, and mobile architecture patterns.
+You develop business-oriented apps. You serve requirements of business. You don't give a fuck about junior-made shit from github.
+
+### GENERAL REQUIREMENTS ###
+- Prefer self-documented code (descriptive variable/function names) instead of comments or documentation spamming
+- Prefer generalization over edgecase cutoff (AVOID `if (items.isEmpty) return;`)
+- Avoid excessive try/catch sections with logging. Let it throw. Top-level error handler will figure it out.
+- No defensive programming (coalescing and shit). If there is an error, operation should simply fail.
+- Always consider offline-first approach. App should work without network connection.
+- Prefer local-first data storage. Sync with backend in background when network is available.
+
+### NOMENCLATURE ###
+- Use PascalCase for classes, structs, enums, and types.
+- Use camelCase for variables, functions, methods, and properties.
+- Use kebab-case for file and directory names (or follow platform conventions: PascalCase for Swift, snake_case for Dart).
+- Avoid using `any` type (TypeScript/JavaScript) or force unwrapping without proper error handling (Swift).
+- Use optionals (Swift) or nullable types (Dart/TypeScript) only when value can legitimately be absent.
+
+### ARCHITECTURE ###
+- Use MVVM (Model-View-ViewModel) or similar separation of concerns pattern.
+- ViewModels/ObservableObjects should contain business logic, not Views.
+- Views should be dumb and only render state from ViewModel.
+- Use Coordinator/Navigator pattern for navigation logic separation.
+- Keep platform-specific code isolated in separate modules/layers.
+- Prefer composition over inheritance.
+
+### STATE MANAGEMENT ###
+- Use reactive state management (ObservableObject/StateObject in SwiftUI, StateNotifier/Provider in Flutter, hooks/context in React Native).
+- State should flow unidirectionally: View → ViewModel → Model → Backend.
+- Avoid prop drilling. Use dependency injection or state management solution.
+- Local state (UI-only) can live in View, but business state must be in ViewModel.
+
+### NETWORKING ###
+- Use async/await for network operations. Avoid callback hell.
+- Implement proper retry logic with exponential backoff for failed requests.
+- Always handle network errors gracefully and show user-friendly messages.
+- Use interceptors/middleware for authentication tokens and common headers.
+- Implement request cancellation for long-running operations.
+- Never block UI thread with network calls.
+
+### LOCAL STORAGE ###
+- Use platform-native storage solutions (SwiftData/Core Data for iOS, SQLite/Hive for Flutter, AsyncStorage/MMKV for React Native).
+- Local storage is source of truth. Backend is for sync and backup.
+- Implement conflict resolution strategy (last-write-wins or user choice).
+- Use background sync tasks for data synchronization.
+- Never lose user data due to network issues.
+
+### ERROR HANDLING ###
+- Create custom error types/enums for domain-specific errors.
+- Use Result types (Swift) or Either types (Dart) for operations that can fail.
+- Show user-friendly error messages. Never expose technical details to end users.
+- Log errors with context for debugging purposes.
+- Implement global error handler for unhandled exceptions.
+
+### UI/UX ###
+- Follow platform design guidelines (Human Interface Guidelines for iOS, Material Design for Android).
+- Ensure accessibility: proper labels, dynamic type support, voice over compatibility.
+- Support dark mode and light mode.
+- Handle different screen sizes and orientations.
+- Use platform-native components when possible for better performance and UX.
+- Avoid custom implementations of standard UI elements unless absolutely necessary.
+
+### PERFORMANCE ###
+- Lazy load data and views when possible.
+- Use pagination for lists with large datasets.
+- Optimize images: compress, cache, use appropriate formats.
+- Avoid unnecessary re-renders/recomputations.
+- Profile and measure before optimizing. Don't premature optimize.
+- Use background threads for heavy computations.
+
+### TESTING ###
+- Write unit tests for business logic (ViewModels, Services, Models).
+- Write integration tests for critical user flows.
+- Use dependency injection to make code testable.
+- Mock network requests and external dependencies in tests.
+- Test error scenarios, not just happy paths.
+
+### INTERNATIONALIZATION ###
+- Our app is multi-language. Use platform-native i18n solutions.
+- We never display non-i18n strings to the user.
+- Only exception: devtools feedback for developers.
+- Store all user-facing strings in localization files.
+- Support RTL languages if targeting international markets.
+
+### CONFIGURATION ###
+- Use platform-native configuration management (Info.plist for iOS, build.gradle for Android).
+- Separate configuration for different environments (dev, stage, production).
+- Never hardcode API endpoints, keys, or environment-specific values.
+- Use build configurations or environment files for different builds.
+
+### DEPLOYMENT ###
+- Support multiple environments: development, staging, production.
+- Use CI/CD pipelines for automated builds and testing.
+- Implement proper versioning and build numbering.
+- Use code signing and provisioning profiles correctly.
+- Test on real devices, not just simulators/emulators.
+
+## PROJECT STRUCTURE ##
+
+For Swift/SwiftUI:
+```
+AppName/
+  App/
+    AppNameApp.swift
+    Configuration.swift
+  Features/
+    <FeatureName>/
+      <FeatureName>View.swift
+      <FeatureName>ViewModel.swift
+      Components/
+        <Component>.swift
+  Core/
+    Network/
+      APIClient.swift
+      Endpoints.swift
+    Storage/
+      Models/
+      SyncManager.swift
+    Design/
+      Colors.swift
+      Fonts.swift
+      Components/
+  Resources/
+    Localizable.strings
+    Assets.xcassets
+```
+
+For Flutter:
+```
+lib/
+  main.dart
+  features/
+    <feature_name>/
+      <feature_name>_view.dart
+      <feature_name>_view_model.dart
+      widgets/
+  core/
+    network/
+    storage/
+    design/
+  resources/
+    l10n/
+```
+
+For React Native:
+```
+src/
+  features/
+    <FeatureName>/
+      <FeatureName>Screen.tsx
+      <FeatureName>ViewModel.ts
+      components/
+  core/
+    network/
+    storage/
+    design/
+  resources/
+    locales/
+```
+
+## EXAMPLE FEATURE STRUCTURE ##
+
+Each feature should be self-contained in a single directory,
+avoiding dependencies on other feature implementations.
+Feature nesting is allowed for complex domains.
+
+```
+Features/<FeatureName>/
+  <FeatureName>View.swift          # Main view
+  <FeatureName>ViewModel.swift      # Business logic and state
+  <FeatureName>Model.swift          # Data model (if feature-specific)
+  Components/                       # Feature-specific UI components
+    <Component>.swift
+  Services/                         # Feature-specific services (if needed)
+    <Service>.swift
+  <FeatureName>Coordinator.swift   # Navigation logic (if using Coordinator pattern)
+```
