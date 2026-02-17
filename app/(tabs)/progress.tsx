@@ -1,9 +1,10 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { View, Text, ScrollView, StyleSheet } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { runOnJS } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useNavigation } from 'expo-router';
 import { useThemeStore } from '@/store/useTheme';
 import { useHabitsStore } from '@/store/useHabits';
 import { Chip } from '@/components/ui/Chip';
@@ -22,13 +23,30 @@ export default function ProgressScreen() {
   const insets = useSafeAreaInsets();
   const now = new Date();
 
-  const [level, setLevel] = useState<Level>('year');
+  const navigation = useNavigation();
+
+  const [level, setLevel] = useState<Level>('month');
   const [habitFilter, setHabitFilter] = useState<string | null>(null);
   const [hiddenIds, setHiddenIds] = useState<Set<string>>(new Set());
   const [navYear, setNavYear] = useState(now.getFullYear());
   const [navMonth, setNavMonth] = useState(now.getMonth());
   const [navWeekStart, setNavWeekStart] = useState(weekStart(now));
   const [navDay, setNavDay] = useState<Date>(now);
+
+  // Tap tab again → reset to current month (home)
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('tabPress', (e) => {
+      const today = new Date();
+      const isHome = level === 'month' && navYear === today.getFullYear() && navMonth === today.getMonth();
+      if (!isHome) {
+        e.preventDefault();
+        setLevel('month');
+        setNavYear(today.getFullYear());
+        setNavMonth(today.getMonth());
+      }
+    });
+    return unsubscribe;
+  }, [navigation, level, navYear, navMonth]);
 
   const goMonth = (m: number) => {
     setNavMonth(m);
@@ -136,11 +154,13 @@ export default function ProgressScreen() {
     });
 
   const backLabel =
-    level === 'month'
-      ? 'Год'
-      : level === 'week'
-        ? MONTH_NAMES_RU[navMonth]
-        : 'Неделя';
+    level === 'year'
+      ? ''
+      : level === 'month'
+        ? 'Год'
+        : level === 'week'
+          ? MONTH_NAMES_RU[navMonth]
+          : 'Неделя';
 
   return (
     <View style={[styles.root, { backgroundColor: C.bg, paddingTop: insets.top }]}>

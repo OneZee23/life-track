@@ -46,11 +46,13 @@ export default function CheckInScreen() {
       try {
         const existing = await loadDate(dateStr);
         if (!mounted) return;
+        const hasExisting = Object.keys(existing).length > 0;
         const initial: Record<string, boolean> = {};
         habits.forEach((h) => {
-          initial[h.id] = existing[h.id] === 1;
+          initial[h.id] = hasExisting ? existing[h.id] === 1 : false;
         });
         setVals(initial);
+        if (hasExisting) setSaved(true);
         setLoaded(true);
       } catch (e) {
         console.error('Failed to load checkins:', e);

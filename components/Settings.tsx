@@ -7,7 +7,6 @@ import {
   Switch,
   Linking,
   Modal,
-  ScrollView,
 } from 'react-native';
 import Animated, { SlideInDown } from 'react-native-reanimated';
 import { useThemeStore } from '@/store/useTheme';
@@ -42,7 +41,7 @@ export function Settings({ visible, onClose }: Props) {
             {/* Handle */}
             <View style={[styles.handle, { backgroundColor: C.text5 }]} />
 
-            <ScrollView showsVerticalScrollIndicator={false} bounces={false}>
+            <View>
               <Text style={[styles.title, { color: C.text0 }]}>Настройки</Text>
 
               {/* Theme toggle */}
@@ -138,7 +137,7 @@ export function Settings({ visible, onClose }: Props) {
               <Text style={[styles.version, { color: C.text5 }]}>
                 LifeTrack MVP v0.1.0 — сделано с душой
               </Text>
-            </ScrollView>
+            </View>
           </Pressable>
         </Animated.View>
       </Pressable>
@@ -157,7 +156,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 40,
     paddingTop: 8,
-    maxHeight: '85%',
   },
   handle: {
     width: 36,

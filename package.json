@@ -6,7 +6,12 @@
     "start": "expo start",
     "ios": "expo start --ios",
     "android": "expo start --android",
-    "lint": "npx tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "build": "eas build --platform ios --profile production",
+    "build:preview": "eas build --platform ios --profile preview",
+    "submit": "eas submit --platform ios --latest",
+    "release": "eas build --platform ios --profile production && eas submit --platform ios --latest",
+    "reset": "expo start --clear"
   },
   "dependencies": {
     "@expo/vector-icons": "~14.0.4",
