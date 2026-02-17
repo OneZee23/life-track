@@ -1,21 +1,14 @@
-# 📊 LifeTrack
+# LifeTrack
 
 > Minimalist daily habit tracker — did you do it or not?
 
-**Status:** 🚧 MVP in Development | **Started:** Feb 2026 | **Format:** Proof of Work (Season 2)
-
-**Current Status:**
-- ✅ PRD v3 & Technical Spec ready
-- ✅ Interactive prototype (v8) — binary system, tested with users
-- ✅ Design finalized (tap cards ✓/—, dual theme)
-- ⏳ React Native + Expo migration in progress
-- 🎯 Target: App Store + Google Play in 30 days
+**Status:** v0.1.0 MVP | iOS App Store (on review) | **Started:** Feb 2026
 
 ---
 
 ## TL;DR
 
-Every habit tracker asks too much. Sliders, ratings, timers, notes. LifeTrack asks one thing: **did you do it?** Tap = ✓. Don't tap = —. Five habits, five taps, done. See your GitHub-style heatmap grow green.
+Every habit tracker asks too much. Sliders, ratings, timers, notes. LifeTrack asks one thing: **did you do it?** Tap = done. Don't tap = skip. Five habits, five taps, done. See your GitHub-style heatmap grow green.
 
 No sign-up. No cloud. No notifications. No stress. No thinking.
 
@@ -25,11 +18,11 @@ No sign-up. No cloud. No notifications. No stress. No thinking.
 
 This project went through three design iterations before landing on the simplest possible version:
 
-- **v1–v5:** Slider 0–10. Users said: *"What's the difference between sleep 7 and sleep 8?"*
-- **v6–v7:** Slider 0–5 with text labels. Friend said: *"It looks like something you need to figure out."*
+- **v1-v5:** Slider 0-10. Users said: *"What's the difference between sleep 7 and sleep 8?"*
+- **v6-v7:** Slider 0-5 with text labels. Friend said: *"It looks like something you need to figure out."*
 - **v8:** Binary. Tap = did it. That's it.
 
-The insight: **the goal is to build the habit, not measure it.** Success = any progress at all. Sleep? Did you go to bed on time — yes or no. Exercise? Did you move — yes or no. When the habit is formed, then you can go deeper. But first — just do it. Every day.
+The insight: **the goal is to build the habit, not measure it.** Success = any progress at all. When the habit is formed, then you can go deeper. But first — just do it. Every day.
 
 **Personal pain:** Health circumstances made it critical to track 5 areas daily. A year of manual journaling proved the concept. No app was simple enough.
 
@@ -59,30 +52,106 @@ Your data becomes a heatmap. Green = did something. Gray = didn't. Today pulses 
 
 ---
 
+## Features
+
+### Check-in Screen
+- Tap card to toggle: gray (skip) → green (done)
+- Spring scale animation + haptic feedback
+- Progress bar: X/N filled
+- "Готово" → confetti + summary
+
+### Progress Screen (Drill-down)
+- **Year:** 12 month cards with heatmaps (green/gray)
+- **Month:** Calendar grid, current & best streaks
+- **Week:** Per-habit bars, weekly summary
+- **Day:** Detailed view per habit
+- **Today:** Pulsing green border
+- Filter by individual habit (including deleted habits)
+- Swipe gestures to navigate between periods
+
+### Habits Management
+- Add / edit / delete (soft-delete preserves history)
+- Emoji picker (20 presets), max 10 habits
+- Drag & drop reorder
+- Default: Sleep, Activity, Nutrition, Mental, Projects
+
+### Settings
+- Dark/light theme toggle
+- About section with project info
+- Feedback link (@onezee123 on Telegram)
+- Social links (Telegram channel, YouTube)
+
+---
+
 ## Tech Stack
 
 ```
-Framework:   React Native + Expo SDK 54 (New Architecture)
+Framework:   React Native + Expo SDK 52 (New Architecture)
 Language:    TypeScript
-State:       Zustand
-Storage:     SQLite (expo-sqlite)
-Animations:  React Native Reanimated 4
-Gestures:    react-native-gesture-handler
+State:       Zustand v5
+Storage:     SQLite (expo-sqlite) with versioned migrations
+Animations:  React Native Reanimated 3
+Gestures:    react-native-gesture-handler (Tap + Pan)
 Haptics:     expo-haptics
+Navigation:  Expo Router (file-based)
 Build:       EAS Build (cloud)
-Platforms:   iOS 15+ / Android 10+
-Backend:     None (MVP) → NestJS + PostgreSQL (v2)
+Platform:    iOS 15+
+Backend:     None (local-only MVP)
 ```
 
 ---
 
-## Documentation
+## Project Structure
 
-| Document | Description |
-|----------|-------------|
-| [📋 PRD v3](./docs/PRD.md) | Product requirements, acceptance criteria, design system |
-| [🔧 Technical Spec](./docs/TECHNICAL_SPEC.md) | Architecture, SQLite schema, component design |
-| [🎨 Prototype](./prototype/) | Interactive JSX prototype (v8) |
+```
+lifetrack/
+├── app/
+│   ├── _layout.tsx              # Root layout + SQLite provider + store init
+│   ├── index.tsx                # Entry → redirect to checkin
+│   └── (tabs)/
+│       ├── _layout.tsx          # Tab navigator (3 tabs)
+│       ├── checkin.tsx          # Daily check-in screen
+│       ├── progress.tsx         # Progress with drill-down + swipe
+│       └── habits.tsx           # Habit management (CRUD + reorder)
+├── components/
+│   ├── HabitToggle.tsx          # Tap card with spring animation
+│   ├── HeatmapCell.tsx          # Single heatmap cell
+│   ├── ProgressYear.tsx         # Year view (12 month cards)
+│   ├── ProgressMonth.tsx        # Month calendar grid
+│   ├── ProgressWeek.tsx         # Week per-habit breakdown
+│   ├── ProgressDay.tsx          # Day detailed view
+│   ├── Settings.tsx             # Settings with about & feedback
+│   ├── Confetti.tsx             # Save celebration animation
+│   └── ui/
+│       ├── Chip.tsx             # Filter chip (with dimmed/dismiss)
+│       ├── NavHeader.tsx        # Screen header
+│       └── BackBtn.tsx          # Navigation back button
+├── store/
+│   ├── useHabits.ts             # Habits store (CRUD + soft-delete)
+│   ├── useCheckins.ts           # Checkins store (toggle + save + ranges)
+│   └── useTheme.ts              # Theme store (light/dark)
+├── db/
+│   ├── schema.ts                # Table definitions
+│   ├── migrations.ts            # Versioned migrations (v1-v3)
+│   └── queries.ts               # All SQL queries
+├── utils/
+│   ├── dates.ts                 # Russian locale date helpers
+│   └── constants.ts             # Colors, themes, defaults, emojis
+└── types/
+    └── index.ts                 # Habit, Checkin, DayData, DayStatus
+```
+
+---
+
+## Database
+
+SQLite with versioned migrations (PRAGMA user_version):
+
+- **v1:** Initial schema (habits, checkins, preferences) + seed habits
+- **v2:** Soft-delete for habits (`deleted_at` column)
+- **v3:** Sync preparation (`updated_at` on checkins, `device_id` in preferences)
+
+All data stored locally on device. No network requests.
 
 ---
 
@@ -91,8 +160,8 @@ Backend:     None (MVP) → NestJS + PostgreSQL (v2)
 ### Prerequisites
 
 - Node.js 18+
-- Expo CLI (`npm install -g expo-cli`)
-- iOS Simulator (macOS) or Android Emulator
+- Expo CLI
+- iOS Simulator (macOS)
 
 ### Development
 
@@ -101,110 +170,63 @@ git clone https://github.com/OneZee23/life-track.git
 cd life-track
 
 npm install
-npx expo start --dev-client
+npx expo start
 
-# iOS
-npx expo run:ios
-
-# Android
-npx expo run:android
+# Press 'i' to open in iOS Simulator
+# Press 'shift+i' to pick a specific simulator
 ```
 
 ### Building
 
 ```bash
-# Preview (internal testing)
-eas build --platform ios --profile preview
-eas build --platform android --profile preview
+# Production build
+eas build --platform ios --profile production
 
-# Production
-eas build --platform all --profile production
-
-# Submit
-eas submit --platform ios
-eas submit --platform android
+# Submit to App Store
+eas submit --platform ios --latest
 ```
 
 ---
 
-## Features
+## Documentation
 
-### ✅ Design & Prototyping (8 iterations)
-
-- v1–v5: Slider 0–10 → user feedback → too complex
-- v6–v7: Slider 0–5 with labels → friend feedback → still too complex
-- v8: Binary tap cards ✓/— → just right
-- Light & dark theme with iOS-native feel
-- Spring animations, haptic feedback
-
-### ✅ Check-in Screen
-
-- Tap card to toggle: gray (—) → green (✓)
-- Spring scale animation + checkmark pop effect
-- Progress bar: X/5 filled
-- "Готово ✓" → "День записан!" with confetti
-- Gear icon (⚙) → settings
-
-### ✅ Progress Screen (Drill-down)
-
-- **Year:** 12 month cards with binary heatmaps (green/gray)
-- **Month:** Calendar grid, current & best streaks
-- **Week:** Per-habit bars (✓/—), weekly X/Y
-- **Day:** Detailed ✓/— per habit
-- **Today:** Pulsing green border
-- Filter by individual habit
-
-### ✅ Habits Management
-
-- Add / edit / delete, emoji picker (20 presets)
-- Drag & drop reorder, max 10 habits
-- Default: Sleep 🛌, Activity 🚴, Nutrition 🥗, Mental 🧠, Projects 💻
-
-### ✅ Settings
-
-- Dark/light theme toggle
-- Social links (Telegram, Threads)
-- App version
-
-### 🚧 In Progress
-
-- [ ] React Native + Expo project setup
-- [ ] SQLite schema & migrations
-- [ ] Zustand stores
-- [ ] HabitToggle component (Reanimated 4 tap gesture)
-- [ ] All screens migration
-- [ ] EAS Build configuration
+| Document | Description |
+|----------|-------------|
+| [PRD v3](./docs/lifetrack-prd.md) | Product requirements, acceptance criteria, design system |
+| [Technical Spec](./docs/lifetrack-tech.md) | Architecture, SQLite schema, component design |
+| [Prototype](./docs/lifetrack-mvp.jsx) | Interactive JSX prototype (v8) |
+| [Slider archive](./docs/docs-for-slider/) | Earlier slider-based iterations (v1-v7) |
 
 ---
 
 ## Roadmap
 
-### Phase 1: MVP ← current
+### v0.1.0 MVP (done)
 
-- [x] Market research
-- [x] PRD v1 (0–10) → v2 (0–5) → v3 (binary)
-- [x] Prototype v1–v8
+- [x] PRD v1 (0-10) → v2 (0-5) → v3 (binary)
+- [x] JSX prototype v1-v8
 - [x] User testing at each stage
 - [x] Technical specification
-- [ ] React Native implementation
-- [ ] App Store + Google Play
+- [x] React Native + Expo implementation
+- [x] Binary check-in + tap cards
+- [x] SQLite with versioned migrations
+- [x] Progress (year/month/week/day) with swipe navigation
+- [x] Habits management (CRUD + drag & drop + soft-delete)
+- [x] Settings with about section
+- [x] EAS Build + App Store submission
 
-### Phase 2: Polish
+### v0.2.0 (planned)
 
-- [ ] Onboarding (2–3 screens)
+- [ ] Online sync (server + local offline data merge)
+- [ ] Onboarding (2-3 screens)
 - [ ] Data export (CSV/JSON)
-- [ ] iOS widget (streak)
 - [ ] English localization
 
-### Phase 3: Advanced (optional)
+### v0.3.0 (ideas)
 
-- [ ] "Advanced mode" — 0–5 scale for power users
-- [ ] NestJS + PostgreSQL backend
-- [ ] Cross-device sync
-
-### Phase 4: Expansion
-
-- [ ] Apple Health, Apple Watch, Telegram Mini App
+- [ ] iOS widget (streak)
+- [ ] Apple Watch companion
+- [ ] Advanced mode (0-5 scale for power users)
 
 ---
 
@@ -212,11 +234,9 @@ eas submit --platform android
 
 | Version | System | Feedback | Decision |
 |---------|--------|----------|----------|
-| v1–v5 | Slider 0–10 | "What's 7 vs 8?" | Too granular |
-| v6–v7 | Slider 0–5 + labels | "Looks complex" | Still too much thinking |
-| **v8** | **Binary ✓/—** | **"Instant. Love it."** | **Ship it** |
-
-The key insight: a habit tracker should require **zero decisions**. Not "how well did I do?" — just "did I do it?"
+| v1-v5 | Slider 0-10 | "What's 7 vs 8?" | Too granular |
+| v6-v7 | Slider 0-5 + labels | "Looks complex" | Still too much thinking |
+| **v8** | **Binary** | **"Instant. Love it."** | **Ship it** |
 
 ---
 
@@ -230,20 +250,15 @@ Open development, "Proof of Work" Season 2:
 
 ---
 
-## Contributing
+## Links
 
-Issues and PRs welcome. To run the prototype locally, open `prototype/lifetrack-mvp.jsx` in any React sandbox.
+- **Channel:** [@onezee_co](https://t.me/onezee_co) — daily progress
+- **YouTube:** [OneZee](https://www.youtube.com/c/onezee) — video docs
+- **Feedback:** [@onezee123](https://t.me/onezee123) — DM for bugs & ideas
+- **Season 1:** [Telegram Stars Shop](https://github.com/OneZee23/fraggram)
 
 ---
 
 ## License
 
 MIT
-
----
-
-## Links
-
-- **Channel:** [@onezee_co](https://t.me/onezee_co) — daily progress
-- **YouTube:** [OneZee](https://www.youtube.com/c/onezee) — video docs
-- **Season 1:** [Telegram Stars Shop](https://github.com/OneZee23/fraggram)
