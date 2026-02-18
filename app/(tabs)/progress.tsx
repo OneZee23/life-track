@@ -1,10 +1,9 @@
-import { useState, useMemo, useCallback, useEffect } from 'react';
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { View, Text, ScrollView, StyleSheet } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import { runOnJS } from 'react-native-reanimated';
-import * as Haptics from 'expo-haptics';
+import Animated, { FadeInLeft, FadeInRight, runOnJS } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useNavigation } from 'expo-router';
+import { useNavigation, useFocusEffect } from 'expo-router';
 import { useThemeStore } from '@/store/useTheme';
 import { useHabitsStore } from '@/store/useHabits';
 import { Chip } from '@/components/ui/Chip';
@@ -13,7 +12,7 @@ import { ProgressYear } from '@/components/ProgressYear';
 import { ProgressMonth } from '@/components/ProgressMonth';
 import { ProgressWeek } from '@/components/ProgressWeek';
 import { ProgressDay } from '@/components/ProgressDay';
-import { weekStart, MONTH_NAMES_RU } from '@/utils/dates';
+import { weekStart, formatDate, MONTH_NAMES_RU } from '@/utils/dates';
 
 type Level = 'year' | 'month' | 'week' | 'day';
 
@@ -23,19 +22,33 @@ export default function ProgressScreen() {
   const insets = useSafeAreaInsets();
   const now = new Date();
 
-  const navigation = useNavigation();
+  const navigation = useNavigation<any>();
+  const lastDateRef = useRef(formatDate(now));
 
   const [level, setLevel] = useState<Level>('month');
   const [habitFilter, setHabitFilter] = useState<string | null>(null);
-  const [hiddenIds, setHiddenIds] = useState<Set<string>>(new Set());
   const [navYear, setNavYear] = useState(now.getFullYear());
   const [navMonth, setNavMonth] = useState(now.getMonth());
   const [navWeekStart, setNavWeekStart] = useState(weekStart(now));
   const [navDay, setNavDay] = useState<Date>(now);
 
+  // Refresh to current month when day changes (handles midnight)
+  useFocusEffect(
+    useCallback(() => {
+      const today = new Date();
+      const todayStr = formatDate(today);
+      if (todayStr !== lastDateRef.current) {
+        lastDateRef.current = todayStr;
+        setLevel('month');
+        setNavYear(today.getFullYear());
+        setNavMonth(today.getMonth());
+      }
+    }, [])
+  );
+
   // Tap tab again → reset to current month (home)
   useEffect(() => {
-    const unsubscribe = navigation.addListener('tabPress', (e) => {
+    const unsubscribe = navigation.addListener('tabPress', (e: any) => {
       const today = new Date();
       const isHome = level === 'month' && navYear === today.getFullYear() && navMonth === today.getMonth();
       if (!isHome) {
@@ -81,22 +94,19 @@ export default function ProgressScreen() {
     }
   };
 
-  // Sort chips: active first, deleted last; hide dismissed
-  const sortedHabits = useMemo(() => {
-    const visible = allHabits.filter((h) => !hiddenIds.has(h.id));
-    const active = visible.filter((h) => !h.deleted);
-    const deleted = visible.filter((h) => h.deleted);
-    return [...active, ...deleted];
-  }, [allHabits, hiddenIds]);
+  // Only show active habits in filter chips
+  const activeHabits = useMemo(() => {
+    return allHabits.filter((h) => !h.deleted);
+  }, [allHabits]);
 
-  const dismissHabit = (id: string) => {
-    if (habitFilter === id) setHabitFilter(null);
-    setHiddenIds((prev) => new Set(prev).add(id));
-  };
+  // Swipe animation direction
+  const [swipeKey, setSwipeKey] = useState(0);
+  const swipeDirRef = useRef<'left' | 'right'>('right');
 
   // Swipe prev/next for current level
   const swipePrev = useCallback(() => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    swipeDirRef.current = 'right';
+    setSwipeKey((k) => k + 1);
     if (level === 'year') {
       setNavYear((y) => y - 1);
     } else if (level === 'month') {
@@ -117,7 +127,8 @@ export default function ProgressScreen() {
   }, [level, navMonth, navYear]);
 
   const swipeNext = useCallback(() => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    swipeDirRef.current = 'left';
+    setSwipeKey((k) => k + 1);
     if (level === 'year') {
       setNavYear((y) => y + 1);
     } else if (level === 'month') {
@@ -188,14 +199,12 @@ export default function ProgressScreen() {
             active={!habitFilter}
             onPress={() => setHabitFilter(null)}
           />
-          {sortedHabits.map((h) => (
+          {activeHabits.map((h) => (
             <Chip
               key={h.id}
               label={`${h.emoji} ${h.name}`}
               active={habitFilter === h.id}
-              dimmed={!!h.deleted}
               onPress={() => setHabitFilter(habitFilter === h.id ? null : h.id)}
-              onDismiss={h.deleted ? () => dismissHabit(h.id) : undefined}
             />
           ))}
         </ScrollView>
@@ -207,39 +216,44 @@ export default function ProgressScreen() {
           contentContainerStyle={styles.content}
           showsVerticalScrollIndicator={false}
         >
-          {level === 'year' && (
-            <ProgressYear
-              year={navYear}
-              setYear={setNavYear}
-              habitFilter={habitFilter}
-              goMonth={goMonth}
-            />
-          )}
-          {level === 'month' && (
-            <ProgressMonth
-              year={navYear}
-              month={navMonth}
-              setMonth={handleSetMonth}
-              habitFilter={habitFilter}
-              goWeek={goWeek}
-            />
-          )}
-          {level === 'week' && (
-            <ProgressWeek
-              weekStart={navWeekStart}
-              setWeekStart={setNavWeekStart}
-              habits={allHabits}
-              habitFilter={habitFilter}
-              goDay={goDay}
-            />
-          )}
-          {level === 'day' && (
-            <ProgressDay
-              date={navDay}
-              habits={allHabits}
-              habitFilter={habitFilter}
-            />
-          )}
+          <Animated.View
+            key={`${level}-${swipeKey}`}
+            entering={swipeDirRef.current === 'left' ? FadeInRight.duration(200) : FadeInLeft.duration(200)}
+          >
+            {level === 'year' && (
+              <ProgressYear
+                year={navYear}
+                setYear={setNavYear}
+                habitFilter={habitFilter}
+                goMonth={goMonth}
+              />
+            )}
+            {level === 'month' && (
+              <ProgressMonth
+                year={navYear}
+                month={navMonth}
+                setMonth={handleSetMonth}
+                habitFilter={habitFilter}
+                goWeek={goWeek}
+              />
+            )}
+            {level === 'week' && (
+              <ProgressWeek
+                weekStart={navWeekStart}
+                setWeekStart={setNavWeekStart}
+                habits={allHabits}
+                habitFilter={habitFilter}
+                goDay={goDay}
+              />
+            )}
+            {level === 'day' && (
+              <ProgressDay
+                date={navDay}
+                habits={allHabits}
+                habitFilter={habitFilter}
+              />
+            )}
+          </Animated.View>
         </ScrollView>
       </GestureDetector>
     </View>

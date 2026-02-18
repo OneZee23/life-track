@@ -6,6 +6,7 @@ import {
   getCheckinsForDate,
   getCheckinsForDateRange,
 } from '@/db/queries';
+import { formatDate } from '@/utils/dates';
 
 interface CheckinsStore {
   /** date → habitId → 0|1 */
@@ -17,6 +18,7 @@ interface CheckinsStore {
   toggle: (date: string, habitId: string) => void;
   saveDay: (date: string, values: Record<string, boolean>) => Promise<void>;
   getDayStatus: (date: string, habitId?: string) => DayStatus;
+  getStreak: () => Promise<number>;
 }
 
 export const useCheckinsStore = create<CheckinsStore>((set, get) => ({
@@ -61,6 +63,28 @@ export const useCheckinsStore = create<CheckinsStore>((set, get) => ({
       })
     );
     set((s) => ({ data: { ...s.data, [date]: checkins } }));
+  },
+
+  getStreak: async () => {
+    const db = get()._db;
+    if (!db) return 0;
+    const today = new Date();
+    const from = new Date(today);
+    from.setDate(from.getDate() - 90);
+    const rangeData = await getCheckinsForDateRange(db, formatDate(from), formatDate(today));
+    // Walk backwards from yesterday
+    let streak = 0;
+    const d = new Date(today);
+    d.setDate(d.getDate() - 1); // start from yesterday
+    while (true) {
+      const dateStr = formatDate(d);
+      const dayData = rangeData[dateStr];
+      if (!dayData || !Object.values(dayData).some((v) => v === 1)) break;
+      streak++;
+      d.setDate(d.getDate() - 1);
+      if (streak >= 90) break;
+    }
+    return streak;
   },
 
   getDayStatus: (date, habitId) => {

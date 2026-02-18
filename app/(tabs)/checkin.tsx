@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -6,6 +6,7 @@ import {
   Pressable,
   StyleSheet,
 } from 'react-native';
+import { useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
   FadeIn,
@@ -21,6 +22,7 @@ import { useHabitsStore } from '@/store/useHabits';
 import { useCheckinsStore } from '@/store/useCheckins';
 import { HabitToggle } from '@/components/HabitToggle';
 import { Confetti } from '@/components/Confetti';
+import { StreakCelebration } from '@/components/StreakCelebration';
 import { Settings } from '@/components/Settings';
 import { yesterday, monthGenitive, formatDate, WEEKDAYS_FULL_RU, dayOfWeek } from '@/utils/dates';
 
@@ -29,16 +31,32 @@ export default function CheckInScreen() {
   const habits = useHabitsStore((s) => s.habits);
   const loadDate = useCheckinsStore((s) => s.loadDate);
   const saveDay = useCheckinsStore((s) => s.saveDay);
+  const getStreak = useCheckinsStore((s) => s.getStreak);
   const insets = useSafeAreaInsets();
 
+  const [dateStr, setDateStr] = useState(() => formatDate(yesterday()));
   const y = yesterday();
-  const dateStr = formatDate(y);
 
   const [vals, setVals] = useState<Record<string, boolean>>({});
   const [saved, setSaved] = useState(false);
   const [confetti, setConfetti] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  const [streak, setStreak] = useState(0);
+  const [showStreak, setShowStreak] = useState(false);
+  const streakShownRef = useRef(false);
+
+  // Refresh date when tab gains focus (handles midnight / new day)
+  useFocusEffect(
+    useCallback(() => {
+      const fresh = formatDate(yesterday());
+      if (fresh !== dateStr) {
+        setDateStr(fresh);
+        setSaved(false);
+        setLoaded(false);
+      }
+    }, [dateStr])
+  );
 
   useEffect(() => {
     let mounted = true;
@@ -60,6 +78,21 @@ export default function CheckInScreen() {
     })();
     return () => { mounted = false; };
   }, [dateStr, habits]);
+
+  // Load streak on first mount and show celebration
+  useEffect(() => {
+    if (streakShownRef.current || !loaded) return;
+    (async () => {
+      const s = await getStreak();
+      if (s >= 2 && !streakShownRef.current) {
+        setStreak(s);
+        setShowStreak(true);
+        streakShownRef.current = true;
+      } else {
+        streakShownRef.current = true;
+      }
+    })();
+  }, [loaded]);
 
   const toggle = useCallback((id: string) => {
     setVals((prev) => ({ ...prev, [id]: !prev[id] }));
@@ -232,6 +265,9 @@ export default function CheckInScreen() {
       )}
 
       <Settings visible={settingsOpen} onClose={() => setSettingsOpen(false)} />
+      {showStreak && (
+        <StreakCelebration streak={streak} onDismiss={() => setShowStreak(false)} />
+      )}
     </View>
   );
 }

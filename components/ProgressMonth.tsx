@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { useThemeStore } from '@/store/useTheme';
@@ -19,8 +19,16 @@ interface Props {
 export function ProgressMonth({ year, month, setMonth, habitFilter, goWeek }: Props) {
   const C = useThemeStore((s) => s.colors);
   const data = useCheckinsStore((s) => s.data);
+  const loadRange = useCheckinsStore((s) => s.loadDateRange);
 
   const dim = daysInMonth(year, month);
+
+  // Load month data from SQLite
+  useEffect(() => {
+    const from = formatDate(new Date(year, month, 1));
+    const to = formatDate(new Date(year, month, dim));
+    loadRange(from, to);
+  }, [year, month, dim]);
   const firstDow = dayOfWeek(new Date(year, month, 1));
 
   const { cells, bestStreak, currentStreak } = useMemo(() => {

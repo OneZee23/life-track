@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import Animated, { FadeInUp } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
@@ -27,6 +27,14 @@ interface Props {
 export function ProgressWeek({ weekStart: ws, setWeekStart, habits, habitFilter, goDay }: Props) {
   const C = useThemeStore((s) => s.colors);
   const data = useCheckinsStore((s) => s.data);
+  const loadRange = useCheckinsStore((s) => s.loadDateRange);
+
+  // Load week data from SQLite
+  useEffect(() => {
+    const end = new Date(ws);
+    end.setDate(ws.getDate() + 6);
+    loadRange(formatDate(ws), formatDate(end));
+  }, [ws.getTime()]);
 
   const days = useMemo(
     () =>
@@ -56,7 +64,14 @@ export function ProgressWeek({ weekStart: ws, setWeekStart, habits, habitFilter,
       ? `${d0.getDate()}–${d6.getDate()} ${MONTH_NAMES_RU[d0.getMonth()]}`
       : `${d0.getDate()} ${MONTH_SHORT_RU[d0.getMonth()]} – ${d6.getDate()} ${MONTH_SHORT_RU[d6.getMonth()]}`;
 
-  const visibleHabits = habitFilter ? habits.filter((h) => h.id === habitFilter) : habits;
+  const visibleHabits = useMemo(() => {
+    const filtered = habitFilter ? habits.filter((h) => h.id === habitFilter) : habits;
+    // Only show deleted habits if they have data in this week
+    return filtered.filter((h) => {
+      if (!h.deleted) return true;
+      return days.some((d) => data[formatDate(d)]?.[h.id] !== undefined);
+    });
+  }, [habits, habitFilter, days, data]);
 
   return (
     <View>

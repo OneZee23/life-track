@@ -4,6 +4,7 @@ export interface Habit {
   emoji: string;
   sortOrder: number;
   deleted?: boolean;
+  createdAt?: string; // 'YYYY-MM-DD'
 }
 
 export interface Checkin {

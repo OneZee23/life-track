@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,9 +7,14 @@ import {
   Pressable,
   Switch,
   Linking,
-  Modal,
 } from 'react-native';
-import Animated, { SlideInDown } from 'react-native-reanimated';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  withSpring,
+  runOnJS,
+} from 'react-native-reanimated';
 import { useThemeStore } from '@/store/useTheme';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -25,130 +31,171 @@ export function Settings({ visible, onClose }: Props) {
   const dark = useThemeStore((s) => s.dark);
   const toggle = useThemeStore((s) => s.toggle);
 
+  const [mounted, setMounted] = useState(false);
+  const overlayOpacity = useSharedValue(0);
+  const sheetTranslateY = useSharedValue(600);
+
+  useEffect(() => {
+    if (visible) {
+      setMounted(true);
+      overlayOpacity.value = withTiming(1, { duration: 200 });
+      sheetTranslateY.value = withSpring(0, { damping: 20, stiffness: 200 });
+    } else if (mounted) {
+      overlayOpacity.value = withTiming(0, { duration: 250 });
+      sheetTranslateY.value = withTiming(600, { duration: 280 }, (finished) => {
+        if (finished) runOnJS(setMounted)(false);
+      });
+    }
+  }, [visible]);
+
+  const overlayStyle = useAnimatedStyle(() => ({
+    opacity: overlayOpacity.value,
+  }));
+
+  const sheetStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: sheetTranslateY.value }],
+  }));
+
+  if (!mounted) return null;
+
   return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="none"
-      onRequestClose={onClose}
-    >
-      <Pressable style={[styles.overlay, { backgroundColor: dark ? 'rgba(0,0,0,0.6)' : 'rgba(0,0,0,0.32)' }]} onPress={onClose}>
-        <Animated.View entering={SlideInDown.springify().damping(20)}>
-          <Pressable
-            style={[styles.sheet, { backgroundColor: C.card }]}
-            onPress={(e) => e.stopPropagation()}
-          >
-            {/* Handle */}
-            <View style={[styles.handle, { backgroundColor: C.text5 }]} />
+    <View style={styles.container} pointerEvents="box-none">
+      {/* Overlay */}
+      <Animated.View
+        style={[
+          styles.overlay,
+          { backgroundColor: dark ? 'rgba(0,0,0,0.6)' : 'rgba(0,0,0,0.32)' },
+          overlayStyle,
+        ]}
+      >
+        <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
+      </Animated.View>
 
-            <View>
-              <Text style={[styles.title, { color: C.text0 }]}>Настройки</Text>
+      {/* Sheet */}
+      <Animated.View style={[styles.sheetWrap, sheetStyle]}>
+        <Pressable
+          style={[styles.sheet, { backgroundColor: C.card }]}
+          onPress={(e) => e.stopPropagation()}
+        >
+          {/* Handle */}
+          <View style={[styles.handle, { backgroundColor: C.text5 }]} />
 
-              {/* Theme toggle */}
-              <View style={[styles.row, { borderBottomColor: C.sep }]}>
-                <Text style={styles.themeIcon}>{dark ? '🌙' : '☀️'}</Text>
-                <Text style={[styles.rowLabel, { color: C.text1 }]}>
-                  Тёмная тема
-                </Text>
-                <Switch
-                  value={dark}
-                  onValueChange={toggle}
-                  trackColor={{ false: '#E5E5EA', true: C.green }}
-                  thumbColor="#FFFFFF"
-                />
-              </View>
+          <View>
+            <Text style={[styles.title, { color: C.text0 }]}>Настройки</Text>
 
-              {/* About */}
-              <Text style={[styles.sectionLabel, { color: C.text3 }]}>
-                О ПРОЕКТЕ
+            {/* Theme toggle */}
+            <View style={[styles.row, { borderBottomColor: C.sep }]}>
+              <Text style={styles.themeIcon}>{dark ? '🌙' : '☀️'}</Text>
+              <Text style={[styles.rowLabel, { color: C.text1 }]}>
+                Тёмная тема
               </Text>
+              <Switch
+                value={dark}
+                onValueChange={toggle}
+                trackColor={{ false: '#E5E5EA', true: C.green }}
+                thumbColor="#FFFFFF"
+              />
+            </View>
 
-              <View style={[styles.aboutCard, { backgroundColor: C.segBg }]}>
-                <Text style={[styles.aboutText, { color: C.text1 }]}>
-                  LifeTrack — минималистичный трекер привычек. Отмечай вчерашний день за 5 секунд, смотри свой прогресс на тепловой карте. Без оценок, без стресса — просто делал или не делал.
-                </Text>
-                <Text style={[styles.aboutText, { color: C.text2, marginTop: 8 }]}>
-                  Это MVP — приложение создаётся открыто, вместе с сообществом. Весь процесс разработки идёт в Telegram-канале.
-                </Text>
-                <Text style={[styles.aboutText, { color: C.text2, marginTop: 8 }]}>
-                  Автор — OneZee, инди-разработчик. Делаю то, что нужно мне самому, и делюсь этим с вами.
-                </Text>
-              </View>
+            {/* About */}
+            <Text style={[styles.sectionLabel, { color: C.text3 }]}>
+              О ПРОЕКТЕ
+            </Text>
 
-              {/* Feedback */}
-              <Text style={[styles.sectionLabel, { color: C.text3 }]}>
-                ОБРАТНАЯ СВЯЗЬ
+            <View style={[styles.aboutCard, { backgroundColor: C.segBg }]}>
+              <Text style={[styles.aboutText, { color: C.text1 }]}>
+                LifeTrack — минималистичный трекер привычек. Отмечай вчерашний день за 5 секунд, смотри свой прогресс на тепловой карте. Без оценок, без стресса — просто делал или не делал.
               </Text>
-
-              <Pressable
-                style={[styles.row, { borderBottomColor: C.sep }]}
-                onPress={() => Linking.openURL('https://t.me/onezee123')}
-              >
-                <Image source={telegramIcon} style={styles.socialIcon} />
-                <View style={styles.rowContent}>
-                  <Text style={[styles.rowTitle, { color: C.text1 }]} numberOfLines={1}>
-                    Написать автору
-                  </Text>
-                  <Text style={[styles.rowSub, { color: C.text4 }]}>
-                    Баги, идеи, предложения — всё читаю
-                  </Text>
-                </View>
-                <Ionicons name="chatbubble-outline" size={14} color={C.text4} />
-              </Pressable>
-
-              {/* Social */}
-              <Text style={[styles.sectionLabel, { color: C.text3 }]}>
-                ССЫЛКИ
+              <Text style={[styles.aboutText, { color: C.text2, marginTop: 8 }]}>
+                Это MVP — приложение создаётся открыто, вместе с сообществом. Весь процесс разработки идёт в Telegram-канале.
               </Text>
-
-              <Pressable
-                style={[styles.row, { borderBottomColor: C.sep }]}
-                onPress={() => Linking.openURL('https://t.me/onezee_co')}
-              >
-                <Image source={telegramIcon} style={styles.socialIcon} />
-                <View style={styles.rowContent}>
-                  <Text style={[styles.rowTitle, { color: C.text1 }]} numberOfLines={1}>
-                    Telegram-канал
-                  </Text>
-                  <Text style={[styles.rowSub, { color: C.text4 }]}>
-                    Разработка LifeTrack в реальном времени
-                  </Text>
-                </View>
-                <Ionicons name="open-outline" size={14} color={C.text4} />
-              </Pressable>
-
-              <Pressable
-                style={[styles.row, { borderBottomColor: 'transparent' }]}
-                onPress={() => Linking.openURL('https://youtube.com/c/OneZee')}
-              >
-                <Image source={youtubeIcon} style={styles.socialIcon} />
-                <View style={styles.rowContent}>
-                  <Text style={[styles.rowTitle, { color: C.text1 }]} numberOfLines={1}>
-                    YouTube
-                  </Text>
-                  <Text style={[styles.rowSub, { color: C.text4 }]}>
-                    Канал автора
-                  </Text>
-                </View>
-                <Ionicons name="open-outline" size={14} color={C.text4} />
-              </Pressable>
-
-              {/* Version */}
-              <Text style={[styles.version, { color: C.text5 }]}>
-                LifeTrack MVP v0.1.0 — сделано с душой
+              <Text style={[styles.aboutText, { color: C.text2, marginTop: 8 }]}>
+                Автор — OneZee, инди-разработчик. Делаю то, что нужно мне самому, и делюсь этим с вами.
               </Text>
             </View>
-          </Pressable>
-        </Animated.View>
-      </Pressable>
-    </Modal>
+
+            {/* Feedback */}
+            <Text style={[styles.sectionLabel, { color: C.text3 }]}>
+              ОБРАТНАЯ СВЯЗЬ
+            </Text>
+
+            <Pressable
+              style={[styles.row, { borderBottomColor: C.sep }]}
+              onPress={() => Linking.openURL('https://t.me/onezee123')}
+            >
+              <Image source={telegramIcon} style={styles.socialIcon} />
+              <View style={styles.rowContent}>
+                <Text style={[styles.rowTitle, { color: C.text1 }]} numberOfLines={1}>
+                  Написать автору
+                </Text>
+                <Text style={[styles.rowSub, { color: C.text4 }]}>
+                  Баги, идеи, предложения — всё читаю
+                </Text>
+              </View>
+              <Ionicons name="chatbubble-outline" size={14} color={C.text4} />
+            </Pressable>
+
+            {/* Social */}
+            <Text style={[styles.sectionLabel, { color: C.text3 }]}>
+              ССЫЛКИ
+            </Text>
+
+            <Pressable
+              style={[styles.row, { borderBottomColor: C.sep }]}
+              onPress={() => Linking.openURL('https://t.me/onezee_co')}
+            >
+              <Image source={telegramIcon} style={styles.socialIcon} />
+              <View style={styles.rowContent}>
+                <Text style={[styles.rowTitle, { color: C.text1 }]} numberOfLines={1}>
+                  Telegram-канал
+                </Text>
+                <Text style={[styles.rowSub, { color: C.text4 }]}>
+                  Разработка LifeTrack в реальном времени
+                </Text>
+              </View>
+              <Ionicons name="open-outline" size={14} color={C.text4} />
+            </Pressable>
+
+            <Pressable
+              style={[styles.row, { borderBottomColor: 'transparent' }]}
+              onPress={() => Linking.openURL('https://youtube.com/c/OneZee')}
+            >
+              <Image source={youtubeIcon} style={styles.socialIcon} />
+              <View style={styles.rowContent}>
+                <Text style={[styles.rowTitle, { color: C.text1 }]} numberOfLines={1}>
+                  YouTube
+                </Text>
+                <Text style={[styles.rowSub, { color: C.text4 }]}>
+                  Канал автора
+                </Text>
+              </View>
+              <Ionicons name="open-outline" size={14} color={C.text4} />
+            </Pressable>
+
+            {/* Version */}
+            <Text style={[styles.version, { color: C.text5 }]}>
+              LifeTrack MVP v0.1.0 — сделано с душой
+            </Text>
+          </View>
+        </Pressable>
+      </Animated.View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  container: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 50,
+  },
   overlay: {
-    flex: 1,
-    justifyContent: 'flex-end',
+    ...StyleSheet.absoluteFillObject,
+  },
+  sheetWrap: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
   },
   sheet: {
     borderTopLeftRadius: 20,

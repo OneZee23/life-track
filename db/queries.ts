@@ -10,25 +10,27 @@ interface HabitRow {
   emoji: string;
   sort_order: number;
   deleted?: number;
+  created_date?: string;
 }
 
 /** Active (non-deleted) habits for check-in and management screens */
 export async function getAllHabits(db: SQLiteDatabase): Promise<Habit[]> {
   const rows = await db.getAllAsync<HabitRow>(
-    'SELECT id, name, emoji, sort_order FROM habits WHERE deleted_at IS NULL ORDER BY sort_order ASC'
+    'SELECT id, name, emoji, sort_order, date(created_at) as created_date FROM habits WHERE deleted_at IS NULL ORDER BY sort_order ASC'
   );
   return rows.map((r) => ({
     id: r.id,
     name: r.name,
     emoji: r.emoji,
     sortOrder: r.sort_order,
+    createdAt: r.created_date,
   }));
 }
 
 /** All habits including soft-deleted, for progress/history screens */
 export async function getAllHabitsWithDeleted(db: SQLiteDatabase): Promise<Habit[]> {
   const rows = await db.getAllAsync<HabitRow>(
-    'SELECT id, name, emoji, sort_order, (deleted_at IS NOT NULL) as deleted FROM habits ORDER BY sort_order ASC'
+    'SELECT id, name, emoji, sort_order, (deleted_at IS NOT NULL) as deleted, date(created_at) as created_date FROM habits ORDER BY sort_order ASC'
   );
   return rows.map((r) => ({
     id: r.id,
@@ -36,6 +38,7 @@ export async function getAllHabitsWithDeleted(db: SQLiteDatabase): Promise<Habit
     emoji: r.emoji,
     sortOrder: r.sort_order,
     deleted: !!r.deleted,
+    createdAt: r.created_date,
   }));
 }
 
@@ -50,7 +53,8 @@ export async function insertHabit(
     'INSERT INTO habits (id, name, emoji, sort_order) VALUES (?, ?, ?, ?)',
     [id, name, emoji, sortOrder]
   );
-  return { id, name, emoji, sortOrder };
+  const today = new Date().toISOString().slice(0, 10);
+  return { id, name, emoji, sortOrder, createdAt: today };
 }
 
 export async function updateHabit(

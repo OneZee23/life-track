@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useThemeStore } from '@/store/useTheme';
@@ -16,11 +16,24 @@ interface Props {
 export function ProgressDay({ date, habits, habitFilter }: Props) {
   const C = useThemeStore((s) => s.colors);
   const data = useCheckinsStore((s) => s.data);
+  const loadDate = useCheckinsStore((s) => s.loadDate);
   const today = isToday(date);
+
+  // Load day data from SQLite
+  useEffect(() => {
+    loadDate(formatDate(date));
+  }, [date.getTime()]);
   const dateStr = formatDate(date);
   const dayData = data[dateStr];
 
-  const visibleHabits = habitFilter ? habits.filter((h) => h.id === habitFilter) : habits;
+  const visibleHabits = useMemo(() => {
+    const filtered = habitFilter ? habits.filter((h) => h.id === habitFilter) : habits;
+    // Only show deleted habits if they have data for this day
+    return filtered.filter((h) => {
+      if (!h.deleted) return true;
+      return dayData?.[h.id] !== undefined;
+    });
+  }, [habits, habitFilter, dayData]);
 
   const { doneCount, total } = useMemo(() => {
     let done = 0;
