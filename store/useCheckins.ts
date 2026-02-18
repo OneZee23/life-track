@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import type { SQLiteDatabase } from 'expo-sqlite';
 import type { DayStatus } from '@/types';
 import {
-  upsertCheckin,
+  batchUpsertCheckins,
   getCheckinsForDate,
   getCheckinsForDateRange,
 } from '@/db/queries';
@@ -54,14 +54,10 @@ export const useCheckinsStore = create<CheckinsStore>((set, get) => ({
     const db = get()._db;
     if (!db) return;
     const checkins: Record<string, 0 | 1> = {};
-    const entries = Object.entries(values);
-    await Promise.all(
-      entries.map(async ([habitId, done]) => {
-        const value: 0 | 1 = done ? 1 : 0;
-        await upsertCheckin(db, habitId, date, value);
-        checkins[habitId] = value;
-      })
-    );
+    for (const [habitId, done] of Object.entries(values)) {
+      checkins[habitId] = done ? 1 : 0;
+    }
+    await batchUpsertCheckins(db, date, checkins);
     set((s) => ({ data: { ...s.data, [date]: checkins } }));
   },
 

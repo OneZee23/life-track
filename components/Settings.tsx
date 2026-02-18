@@ -13,6 +13,7 @@ import Animated, {
   useAnimatedStyle,
   withTiming,
   withSpring,
+  cancelAnimation,
   runOnJS,
 } from 'react-native-reanimated';
 import { useThemeStore } from '@/store/useTheme';
@@ -46,6 +47,10 @@ export function Settings({ visible, onClose }: Props) {
         if (finished) runOnJS(setMounted)(false);
       });
     }
+    return () => {
+      cancelAnimation(overlayOpacity);
+      cancelAnimation(sheetTranslateY);
+    };
   }, [visible]);
 
   const overlayStyle = useAnimatedStyle(() => ({

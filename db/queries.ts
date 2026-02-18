@@ -102,12 +102,14 @@ export async function reorderHabits(
   db: SQLiteDatabase,
   orderedIds: string[]
 ): Promise<void> {
-  for (let i = 0; i < orderedIds.length; i++) {
-    await db.runAsync(
-      "UPDATE habits SET sort_order = ?, updated_at = datetime('now') WHERE id = ?",
-      [i, orderedIds[i]]
-    );
-  }
+  await db.withTransactionAsync(async () => {
+    for (let i = 0; i < orderedIds.length; i++) {
+      await db.runAsync(
+        "UPDATE habits SET sort_order = ?, updated_at = datetime('now') WHERE id = ?",
+        [i, orderedIds[i]]
+      );
+    }
+  });
 }
 
 // ─── Checkins ───
@@ -131,6 +133,23 @@ export async function upsertCheckin(
      ON CONFLICT(habit_id, date) DO UPDATE SET value = excluded.value, updated_at = datetime('now')`,
     [randomUUID(), habitId, date, value]
   );
+}
+
+export async function batchUpsertCheckins(
+  db: SQLiteDatabase,
+  date: string,
+  values: Record<string, 0 | 1>
+): Promise<void> {
+  await db.withTransactionAsync(async () => {
+    for (const [habitId, value] of Object.entries(values)) {
+      await db.runAsync(
+        `INSERT INTO checkins (id, habit_id, date, value, updated_at)
+         VALUES (?, ?, ?, ?, datetime('now'))
+         ON CONFLICT(habit_id, date) DO UPDATE SET value = excluded.value, updated_at = datetime('now')`,
+        [randomUUID(), habitId, date, value]
+      );
+    }
+  });
 }
 
 export async function getCheckinsForDate(

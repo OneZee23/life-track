@@ -1,21 +1,27 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import {
   View,
   Text,
   TextInput,
   Pressable,
-  ScrollView,
+  Alert,
   KeyboardAvoidingView,
   Platform,
   StyleSheet,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Animated, { FadeInDown, Layout } from 'react-native-reanimated';
+import Animated, { FadeInDown } from 'react-native-reanimated';
+import DraggableFlatList, {
+  ScaleDecorator,
+  type RenderItemParams,
+} from 'react-native-draggable-flatlist';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useThemeStore } from '@/store/useTheme';
 import { useHabitsStore } from '@/store/useHabits';
 import { EMOJIS, MAX_HABITS, HABIT_NAME_LIMIT } from '@/utils/constants';
+import type { Habit } from '@/types';
 import type { Theme } from '@/utils/constants';
 
 export default function HabitsScreen() {
@@ -61,10 +67,23 @@ export default function HabitsScreen() {
     setShowEditEmojiPicker(false);
   };
 
-  const handleRemove = (id: string) => {
-    removeHabit(id);
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-  };
+  const handleRemove = useCallback((id: string, name: string) => {
+    Alert.alert(
+      'Удалить привычку?',
+      `Вы уверены, что хотите удалить «${name}»? Данные чек-инов сохранятся.`,
+      [
+        { text: 'Отмена', style: 'cancel' },
+        {
+          text: 'Удалить',
+          style: 'destructive',
+          onPress: () => {
+            removeHabit(id);
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          },
+        },
+      ]
+    );
+  }, [removeHabit]);
 
   const startEdit = (id: string, name: string, emoji: string) => {
     setEditId(id);
@@ -73,223 +92,235 @@ export default function HabitsScreen() {
     setShowEditEmojiPicker(false);
   };
 
-  const moveUp = (index: number) => {
-    if (index === 0) return;
-    reorderHabits(index, index - 1);
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-  };
+  const onDragEnd = useCallback(({ from, to }: { from: number; to: number }) => {
+    if (from !== to) {
+      reorderHabits(from, to);
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    }
+  }, [reorderHabits]);
 
-  const moveDown = (index: number) => {
-    if (index === habits.length - 1) return;
-    reorderHabits(index, index + 1);
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-  };
+  const renderItem = useCallback(({ item: h, drag, isActive, getIndex }: RenderItemParams<Habit>) => {
+    const idx = getIndex() ?? 0;
+    const isFirst = idx === 0;
+    const isLast = idx === habits.length - 1;
+
+    if (editId === h.id) {
+      return (
+        <View style={[
+          styles.editForm,
+          { backgroundColor: C.greenLight },
+          isFirst && { borderTopLeftRadius: 14, borderTopRightRadius: 14 },
+          isLast && { borderBottomLeftRadius: 14, borderBottomRightRadius: 14 },
+        ]}>
+          <View style={styles.formRow}>
+            <Pressable
+              style={[styles.emojiBtn, { backgroundColor: C.card, borderColor: C.sep }]}
+              onPress={() => setShowEditEmojiPicker(!showEditEmojiPicker)}
+            >
+              <Text style={styles.emojiBtnText}>{editEmoji}</Text>
+            </Pressable>
+            <View style={styles.inputWrap}>
+              <TextInput
+                value={editName}
+                onChangeText={(t) => setEditName(t.slice(0, HABIT_NAME_LIMIT))}
+                style={[styles.input, { backgroundColor: C.bg, borderColor: C.sep, color: C.text1 }]}
+                autoFocus
+              />
+              <Text style={[styles.charCount, { color: C.text4 }]}>
+                {editName.length}/{HABIT_NAME_LIMIT}
+              </Text>
+            </View>
+          </View>
+          {showEditEmojiPicker && (
+            <EmojiGrid
+              selected={editEmoji}
+              onSelect={(e) => {
+                setEditEmoji(e);
+                setShowEditEmojiPicker(false);
+              }}
+              colors={C}
+            />
+          )}
+          <View style={styles.formActions}>
+            <Pressable
+              style={[styles.actionBtn, { backgroundColor: C.green }]}
+              onPress={handleSave}
+            >
+              <Text style={styles.actionBtnTextWhite}>Сохранить</Text>
+            </Pressable>
+            <Pressable
+              style={[styles.actionBtn, { backgroundColor: C.card, borderWidth: 1, borderColor: C.sep }]}
+              onPress={() => setEditId(null)}
+            >
+              <Text style={[styles.actionBtnText, { color: C.text2 }]}>Отмена</Text>
+            </Pressable>
+          </View>
+        </View>
+      );
+    }
+
+    return (
+      <ScaleDecorator>
+        <Pressable
+          onLongPress={drag}
+          disabled={isActive}
+          style={[
+            styles.habitRow,
+            { backgroundColor: C.card },
+            isFirst && { borderTopLeftRadius: 14, borderTopRightRadius: 14 },
+            isLast && { borderBottomLeftRadius: 14, borderBottomRightRadius: 14 },
+            isActive && { borderRadius: 14, shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 8, shadowOffset: { width: 0, height: 4 }, elevation: 8 },
+            !isLast && !isActive && { borderBottomWidth: 0.5, borderBottomColor: C.sep },
+          ]}
+        >
+          {/* Drag handle */}
+          <View style={styles.dragHandle}>
+            <Ionicons name="menu" size={18} color={C.text5} />
+          </View>
+
+          <View style={[styles.habitEmoji, { backgroundColor: C.bg }]}>
+            <Text style={styles.habitEmojiText}>{h.emoji}</Text>
+          </View>
+          <Text style={[styles.habitName, { color: C.text1 }]} numberOfLines={1}>
+            {h.name}
+          </Text>
+          <Pressable
+            style={[styles.iconBtn, { backgroundColor: C.segBg }]}
+            onPress={() => startEdit(h.id, h.name, h.emoji)}
+          >
+            <Ionicons name="pencil" size={15} color={C.blue} />
+          </Pressable>
+          <Pressable
+            style={[styles.iconBtn, { backgroundColor: 'rgba(255,59,48,0.1)' }]}
+            onPress={() => handleRemove(h.id, h.name)}
+          >
+            <Ionicons name="close" size={14} color="#FF3B30" />
+          </Pressable>
+        </Pressable>
+      </ScaleDecorator>
+    );
+  }, [C, editId, editName, editEmoji, showEditEmojiPicker, habits.length, handleRemove]);
+
+  const keyExtractor = useCallback((item: Habit) => item.id, []);
+
+  const ListFooter = useCallback(() => (
+    <View style={styles.footer}>
+      {adding ? (
+        <Animated.View
+          entering={FadeInDown.duration(200)}
+          style={[styles.addForm, { backgroundColor: C.card }]}
+        >
+          <Text style={[styles.addFormLabel, { color: C.green }]}>
+            Новая привычка
+          </Text>
+          <View style={styles.formRow}>
+            <Pressable
+              style={[styles.emojiBtn, { backgroundColor: C.bg, borderColor: C.sep }]}
+              onPress={() => setShowEmojiPicker(!showEmojiPicker)}
+            >
+              <Text style={styles.emojiBtnText}>{newEmoji}</Text>
+            </Pressable>
+            <View style={styles.inputWrap}>
+              <TextInput
+                value={newName}
+                onChangeText={(t) => setNewName(t.slice(0, HABIT_NAME_LIMIT))}
+                placeholder="Название"
+                placeholderTextColor={C.text4}
+                style={[styles.input, { backgroundColor: C.bg, borderColor: C.sep, color: C.text1 }]}
+                autoFocus
+              />
+              <Text style={[styles.charCount, { color: C.text4 }]}>
+                {newName.length}/{HABIT_NAME_LIMIT}
+              </Text>
+            </View>
+          </View>
+          {showEmojiPicker && (
+            <EmojiGrid
+              selected={newEmoji}
+              onSelect={(e) => {
+                setNewEmoji(e);
+                setShowEmojiPicker(false);
+              }}
+              colors={C}
+            />
+          )}
+          <View style={styles.formActions}>
+            <Pressable
+              style={[
+                styles.actionBtn,
+                { backgroundColor: newName.trim() ? C.green : C.sep },
+              ]}
+              onPress={handleAdd}
+              disabled={!newName.trim()}
+            >
+              <Text
+                style={[
+                  styles.actionBtnTextWhite,
+                  { color: newName.trim() ? '#fff' : C.text4 },
+                ]}
+              >
+                Добавить
+              </Text>
+            </Pressable>
+            <Pressable
+              style={[styles.actionBtn, { backgroundColor: C.card, borderWidth: 1, borderColor: C.sep }]}
+              onPress={() => {
+                setAdding(false);
+                setShowEmojiPicker(false);
+                setNewName('');
+              }}
+            >
+              <Text style={[styles.actionBtnText, { color: C.text2 }]}>Отмена</Text>
+            </Pressable>
+          </View>
+        </Animated.View>
+      ) : habits.length < MAX_HABITS ? (
+        <Pressable
+          style={[styles.addBtn, { backgroundColor: C.greenLight }]}
+          onPress={() => setAdding(true)}
+        >
+          <Text style={[styles.addBtnText, { color: C.green }]}>
+            + Добавить привычку
+          </Text>
+        </Pressable>
+      ) : (
+        <Text style={[styles.maxText, { color: C.text4 }]}>
+          Максимум {MAX_HABITS} привычек
+        </Text>
+      )}
+    </View>
+  ), [adding, newEmoji, newName, showEmojiPicker, C, habits.length]);
 
   return (
-    <KeyboardAvoidingView
-      style={[styles.root, { backgroundColor: C.bg, paddingTop: insets.top }]}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={[styles.title, { color: C.text0 }]}>Привычки</Text>
-        <Text style={[styles.count, { color: C.text3 }]}>
-          {habits.length} из {MAX_HABITS}
-        </Text>
-      </View>
-
-      <ScrollView
-        contentContainerStyle={styles.content}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
+    <GestureHandlerRootView style={[styles.root, { backgroundColor: C.bg, paddingTop: insets.top }]}>
+      <KeyboardAvoidingView
+        style={styles.root}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        {/* Habits list */}
-        <View style={[styles.list, { backgroundColor: C.card }]}>
-          {habits.map((h, idx) => (
-            <Animated.View key={h.id} layout={Layout.springify()}>
-              {editId === h.id ? (
-                /* ─── Edit form ─── */
-                <View style={[styles.editForm, { backgroundColor: C.greenLight }]}>
-                  <View style={styles.formRow}>
-                    <Pressable
-                      style={[styles.emojiBtn, { backgroundColor: C.card, borderColor: C.sep }]}
-                      onPress={() => setShowEditEmojiPicker(!showEditEmojiPicker)}
-                    >
-                      <Text style={styles.emojiBtnText}>{editEmoji}</Text>
-                    </Pressable>
-                    <View style={styles.inputWrap}>
-                      <TextInput
-                        value={editName}
-                        onChangeText={(t) => setEditName(t.slice(0, HABIT_NAME_LIMIT))}
-                        style={[styles.input, { backgroundColor: C.bg, borderColor: C.sep, color: C.text1 }]}
-                        autoFocus
-                      />
-                      <Text style={[styles.charCount, { color: C.text4 }]}>
-                        {editName.length}/{HABIT_NAME_LIMIT}
-                      </Text>
-                    </View>
-                  </View>
-                  {showEditEmojiPicker && (
-                    <EmojiGrid
-                      selected={editEmoji}
-                      onSelect={(e) => {
-                        setEditEmoji(e);
-                        setShowEditEmojiPicker(false);
-                      }}
-                      colors={C}
-                    />
-                  )}
-                  <View style={styles.formActions}>
-                    <Pressable
-                      style={[styles.actionBtn, { backgroundColor: C.green }]}
-                      onPress={handleSave}
-                    >
-                      <Text style={styles.actionBtnTextWhite}>Сохранить</Text>
-                    </Pressable>
-                    <Pressable
-                      style={[styles.actionBtn, { backgroundColor: C.card, borderWidth: 1, borderColor: C.sep }]}
-                      onPress={() => setEditId(null)}
-                    >
-                      <Text style={[styles.actionBtnText, { color: C.text2 }]}>Отмена</Text>
-                    </Pressable>
-                  </View>
-                </View>
-              ) : (
-                /* ─── Habit row ─── */
-                <View
-                  style={[
-                    styles.habitRow,
-                    idx < habits.length - 1 && { borderBottomWidth: 0.5, borderBottomColor: C.sep },
-                  ]}
-                >
-                  {/* Reorder arrows */}
-                  <View style={styles.reorderBtns}>
-                    <Pressable onPress={() => moveUp(idx)} style={styles.arrowBtn}>
-                      <Ionicons
-                        name="chevron-up"
-                        size={14}
-                        color={idx === 0 ? C.text5 : C.text4}
-                      />
-                    </Pressable>
-                    <Pressable onPress={() => moveDown(idx)} style={styles.arrowBtn}>
-                      <Ionicons
-                        name="chevron-down"
-                        size={14}
-                        color={idx === habits.length - 1 ? C.text5 : C.text4}
-                      />
-                    </Pressable>
-                  </View>
-
-                  <View style={[styles.habitEmoji, { backgroundColor: C.bg }]}>
-                    <Text style={styles.habitEmojiText}>{h.emoji}</Text>
-                  </View>
-                  <Text style={[styles.habitName, { color: C.text1 }]} numberOfLines={1}>
-                    {h.name}
-                  </Text>
-                  <Pressable
-                    style={[styles.iconBtn, { backgroundColor: C.segBg }]}
-                    onPress={() => startEdit(h.id, h.name, h.emoji)}
-                  >
-                    <Ionicons name="pencil" size={15} color={C.blue} />
-                  </Pressable>
-                  <Pressable
-                    style={[styles.iconBtn, { backgroundColor: 'rgba(255,59,48,0.1)' }]}
-                    onPress={() => handleRemove(h.id)}
-                  >
-                    <Ionicons name="close" size={14} color="#FF3B30" />
-                  </Pressable>
-                </View>
-              )}
-            </Animated.View>
-          ))}
+        {/* Header */}
+        <View style={styles.header}>
+          <Text style={[styles.title, { color: C.text0 }]}>Привычки</Text>
+          <Text style={[styles.count, { color: C.text3 }]}>
+            {habits.length} из {MAX_HABITS}
+          </Text>
         </View>
 
-        {/* Add form / button */}
-        {adding ? (
-          <Animated.View
-            entering={FadeInDown.duration(200)}
-            style={[styles.addForm, { backgroundColor: C.card }]}
-          >
-            <Text style={[styles.addFormLabel, { color: C.green }]}>
-              Новая привычка
-            </Text>
-            <View style={styles.formRow}>
-              <Pressable
-                style={[styles.emojiBtn, { backgroundColor: C.bg, borderColor: C.sep }]}
-                onPress={() => setShowEmojiPicker(!showEmojiPicker)}
-              >
-                <Text style={styles.emojiBtnText}>{newEmoji}</Text>
-              </Pressable>
-              <View style={styles.inputWrap}>
-                <TextInput
-                  value={newName}
-                  onChangeText={(t) => setNewName(t.slice(0, HABIT_NAME_LIMIT))}
-                  placeholder="Название"
-                  placeholderTextColor={C.text4}
-                  style={[styles.input, { backgroundColor: C.bg, borderColor: C.sep, color: C.text1 }]}
-                  autoFocus
-                />
-                <Text style={[styles.charCount, { color: C.text4 }]}>
-                  {newName.length}/{HABIT_NAME_LIMIT}
-                </Text>
-              </View>
-            </View>
-            {showEmojiPicker && (
-              <EmojiGrid
-                selected={newEmoji}
-                onSelect={(e) => {
-                  setNewEmoji(e);
-                  setShowEmojiPicker(false);
-                }}
-                colors={C}
-              />
-            )}
-            <View style={styles.formActions}>
-              <Pressable
-                style={[
-                  styles.actionBtn,
-                  { backgroundColor: newName.trim() ? C.green : C.sep },
-                ]}
-                onPress={handleAdd}
-                disabled={!newName.trim()}
-              >
-                <Text
-                  style={[
-                    styles.actionBtnTextWhite,
-                    { color: newName.trim() ? '#fff' : C.text4 },
-                  ]}
-                >
-                  Добавить
-                </Text>
-              </Pressable>
-              <Pressable
-                style={[styles.actionBtn, { backgroundColor: C.card, borderWidth: 1, borderColor: C.sep }]}
-                onPress={() => {
-                  setAdding(false);
-                  setShowEmojiPicker(false);
-                  setNewName('');
-                }}
-              >
-                <Text style={[styles.actionBtnText, { color: C.text2 }]}>Отмена</Text>
-              </Pressable>
-            </View>
-          </Animated.View>
-        ) : habits.length < MAX_HABITS ? (
-          <Pressable
-            style={[styles.addBtn, { backgroundColor: C.greenLight }]}
-            onPress={() => setAdding(true)}
-          >
-            <Text style={[styles.addBtnText, { color: C.green }]}>
-              + Добавить привычку
-            </Text>
-          </Pressable>
-        ) : (
-          <Text style={[styles.maxText, { color: C.text4 }]}>
-            Максимум {MAX_HABITS} привычек
-          </Text>
-        )}
-      </ScrollView>
-    </KeyboardAvoidingView>
+        <DraggableFlatList
+          data={habits}
+          renderItem={renderItem}
+          keyExtractor={keyExtractor}
+          onDragEnd={onDragEnd}
+          onDragBegin={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+          }}
+          containerStyle={styles.listContainer}
+          contentContainerStyle={styles.content}
+          ListFooterComponent={ListFooter}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        />
+      </KeyboardAvoidingView>
+    </GestureHandlerRootView>
   );
 }
 
@@ -342,29 +373,27 @@ const styles = StyleSheet.create({
   count: {
     fontSize: 15,
   },
+  listContainer: {
+    flex: 1,
+  },
   content: {
     paddingHorizontal: 16,
     paddingBottom: 120,
   },
-  list: {
-    borderRadius: 14,
-    overflow: 'hidden',
-    marginBottom: 12,
+  footer: {
+    marginTop: 12,
   },
   habitRow: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 11,
-    paddingLeft: 6,
+    paddingLeft: 8,
     paddingRight: 12,
     gap: 8,
   },
-  reorderBtns: {
-    flexDirection: 'column',
+  dragHandle: {
     paddingHorizontal: 2,
-  },
-  arrowBtn: {
-    padding: 2,
+    paddingVertical: 4,
   },
   habitEmoji: {
     width: 40,

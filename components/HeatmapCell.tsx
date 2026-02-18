@@ -6,7 +6,7 @@ import Animated, {
   withTiming,
   Easing,
 } from 'react-native-reanimated';
-import { useEffect } from 'react';
+import { memo, useEffect } from 'react';
 import { useThemeStore } from '@/store/useTheme';
 import type { DayStatus } from '@/types';
 import { DONE_COLOR } from '@/utils/constants';
@@ -18,7 +18,7 @@ interface Props {
   borderRadius?: number;
 }
 
-export function HeatmapCell({
+export const HeatmapCell = memo(function HeatmapCell({
   status,
   isToday: today,
   size = 18,
@@ -64,4 +64,4 @@ export function HeatmapCell({
       ]}
     />
   );
-}
+});

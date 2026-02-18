@@ -227,7 +227,7 @@ export default function CheckInScreen() {
                 key={h.id}
                 habit={h}
                 done={vals[h.id] ?? false}
-                onToggle={() => toggle(h.id)}
+                onToggle={toggle}
                 index={i}
               />
             ))}

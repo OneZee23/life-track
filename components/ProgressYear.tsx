@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { memo, useEffect, useMemo } from 'react';
 import { View, Text, Pressable, ScrollView, StyleSheet } from 'react-native';
 import Animated, { FadeInUp } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
@@ -143,7 +143,7 @@ export function ProgressYear({ year, setYear, habitFilter, goMonth }: Props) {
   );
 }
 
-function MonthCard({
+const MonthCard = memo(function MonthCard({
   year,
   month,
   habitFilter,
@@ -276,7 +276,7 @@ function MonthCard({
       </View>
     </Pressable>
   );
-}
+});
 
 const styles = StyleSheet.create({
   summaryRow: {

@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { memo, useEffect } from 'react';
 import { Dimensions, StyleSheet } from 'react-native';
 import Animated, {
   useSharedValue,
@@ -10,14 +10,14 @@ import Animated, {
 } from 'react-native-reanimated';
 
 const GREENS = ['#34C759', '#30B350', '#2AA147', '#48D66A', '#5EDD7E'];
-const PARTICLE_COUNT = 35;
+const PARTICLE_COUNT = 20;
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 interface ParticleProps {
   index: number;
 }
 
-function Particle({ index }: ParticleProps) {
+const Particle = memo(function Particle({ index }: ParticleProps) {
   const startX = Math.random() * SCREEN_WIDTH;
   const delay = Math.random() * 400;
   const duration = 1800 + Math.random() * 1200;
@@ -68,7 +68,7 @@ function Particle({ index }: ParticleProps) {
       ]}
     />
   );
-}
+});
 
 export function Confetti({ active }: { active: boolean }) {
   if (!active) return null;

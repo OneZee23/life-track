@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { memo, useCallback } from 'react';
 import { StyleSheet, Text, View, Pressable } from 'react-native';
 import Animated, {
   useSharedValue,
@@ -14,11 +14,11 @@ import { DONE_COLOR } from '@/utils/constants';
 interface Props {
   habit: Habit;
   done: boolean;
-  onToggle: () => void;
+  onToggle: (id: string) => void;
   index: number;
 }
 
-export function HabitToggle({ habit, done, onToggle, index }: Props) {
+export const HabitToggle = memo(function HabitToggle({ habit, done, onToggle, index }: Props) {
   const C = useThemeStore((s) => s.colors);
   const scale = useSharedValue(1);
 
@@ -32,8 +32,8 @@ export function HabitToggle({ habit, done, onToggle, index }: Props) {
 
   const handlePress = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    onToggle();
-  }, [onToggle]);
+    onToggle(habit.id);
+  }, [onToggle, habit.id]);
 
   const cardStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
@@ -91,7 +91,7 @@ export function HabitToggle({ habit, done, onToggle, index }: Props) {
       </Pressable>
     </Animated.View>
   );
-}
+});
 
 function CheckIcon() {
   return (
