@@ -2,7 +2,7 @@
 
 > Minimalist daily habit tracker — did you do it or not?
 
-**Status:** v0.1.0 MVP | iOS App Store (on review) | **Started:** Feb 2026
+**Status:** v0.1.1 | iOS App Store (on review) | **Started:** Feb 2026
 
 ---
 
@@ -59,6 +59,7 @@ Your data becomes a heatmap. Green = did something. Gray = didn't. Today pulses 
 - Spring scale animation + haptic feedback
 - Progress bar: X/N filled
 - "Готово" → confetti + summary
+- Streak celebration on app open (2+ days in a row)
 
 ### Progress Screen (Drill-down)
 - **Year:** 12 month cards with heatmaps (green/gray)
@@ -66,17 +67,19 @@ Your data becomes a heatmap. Green = did something. Gray = didn't. Today pulses 
 - **Week:** Per-habit bars, weekly summary
 - **Day:** Detailed view per habit
 - **Today:** Pulsing green border
-- Filter by individual habit (including deleted habits)
-- Swipe gestures to navigate between periods
+- Filter by individual habit (active habits only in filter)
+- Deleted habits shown only where they have data
+- Swipe gestures with directional animations
 
 ### Habits Management
-- Add / edit / delete (soft-delete preserves history)
+- Add / edit / delete with confirmation dialog
+- Soft-delete preserves checkin history
 - Emoji picker (20 presets), max 10 habits
-- Drag & drop reorder
+- Long-press drag & drop reorder
 - Default: Sleep, Activity, Nutrition, Mental, Projects
 
 ### Settings
-- Dark/light theme toggle
+- Dark/light theme toggle with smooth sheet animation
 - About section with project info
 - Feedback link (@onezee123 on Telegram)
 - Social links (Telegram channel, YouTube)
@@ -114,16 +117,17 @@ lifetrack/
 │       ├── progress.tsx         # Progress with drill-down + swipe
 │       └── habits.tsx           # Habit management (CRUD + reorder)
 ├── components/
-│   ├── HabitToggle.tsx          # Tap card with spring animation
-│   ├── HeatmapCell.tsx          # Single heatmap cell
-│   ├── ProgressYear.tsx         # Year view (12 month cards)
+│   ├── HabitToggle.tsx          # Tap card with spring animation (memo)
+│   ├── HeatmapCell.tsx          # Single heatmap cell (memo)
+│   ├── ProgressYear.tsx         # Year view (12 memo'd month cards)
 │   ├── ProgressMonth.tsx        # Month calendar grid
 │   ├── ProgressWeek.tsx         # Week per-habit breakdown
 │   ├── ProgressDay.tsx          # Day detailed view
-│   ├── Settings.tsx             # Settings with about & feedback
-│   ├── Confetti.tsx             # Save celebration animation
+│   ├── Settings.tsx             # Animated bottom sheet
+│   ├── Confetti.tsx             # Celebration particles (memo)
+│   ├── StreakCelebration.tsx     # Streak overlay with smooth dismiss
 │   └── ui/
-│       ├── Chip.tsx             # Filter chip (with dimmed/dismiss)
+│       ├── Chip.tsx             # Filter chip
 │       ├── NavHeader.tsx        # Screen header
 │       └── BackBtn.tsx          # Navigation back button
 ├── store/
@@ -215,18 +219,34 @@ eas submit --platform ios --latest
 - [x] Settings with about section
 - [x] EAS Build + App Store submission
 
+### v0.1.1 (done)
+
+- [x] Bug fix: progress data loads from SQLite on mount
+- [x] Bug fix: day refreshes on tab focus (midnight boundary)
+- [x] Streak celebration screen (2+ days)
+- [x] Swipe animations in progress (FadeInLeft/Right)
+- [x] Smooth settings sheet (Reanimated, no Modal)
+- [x] Deleted habits filtered from progress chips
+- [x] Long-press drag reorder in habits
+- [x] Delete confirmation dialog
+- [x] Performance: React.memo (HabitToggle, HeatmapCell, MonthCard, Confetti)
+- [x] Performance: SQL transactions (batch upsert, reorder)
+- [x] Performance: animation cleanup on unmount
+
 ### v0.2.0 (planned)
 
-- [ ] Online sync (server + local offline data merge)
+- [ ] Push notifications (daily reminder)
 - [ ] Onboarding (2-3 screens)
+- [ ] iOS widget (today's streak)
 - [ ] Data export (CSV/JSON)
 - [ ] English localization
 
 ### v0.3.0 (ideas)
 
-- [ ] iOS widget (streak)
+- [ ] Online sync (server + local offline data merge)
 - [ ] Apple Watch companion
 - [ ] Advanced mode (0-5 scale for power users)
+- [ ] Sharing streak cards (Instagram stories)
 
 ---
 
