@@ -268,6 +268,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 4,
     paddingBottom: 10,
+    maxWidth: 600,
+    width: '100%',
+    alignSelf: 'center',
   },
   title: {
     fontSize: 32,
@@ -290,5 +293,8 @@ const styles = StyleSheet.create({
   content: {
     paddingHorizontal: 16,
     paddingBottom: 120,
+    maxWidth: 600,
+    width: '100%',
+    alignSelf: 'center',
   },
 });

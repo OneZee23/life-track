@@ -7,12 +7,14 @@ import {
   Pressable,
   Switch,
   Linking,
+  ScrollView,
+  Dimensions,
 } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withTiming,
-  withSpring,
+  Easing,
   cancelAnimation,
   runOnJS,
 } from 'react-native-reanimated';
@@ -40,7 +42,7 @@ export function Settings({ visible, onClose }: Props) {
     if (visible) {
       setMounted(true);
       overlayOpacity.value = withTiming(1, { duration: 200 });
-      sheetTranslateY.value = withSpring(0, { damping: 20, stiffness: 200 });
+      sheetTranslateY.value = withTiming(0, { duration: 350, easing: Easing.out(Easing.cubic) });
     } else if (mounted) {
       overlayOpacity.value = withTiming(0, { duration: 250 });
       sheetTranslateY.value = withTiming(600, { duration: 280 }, (finished) => {
@@ -85,7 +87,11 @@ export function Settings({ visible, onClose }: Props) {
           {/* Handle */}
           <View style={[styles.handle, { backgroundColor: C.text5 }]} />
 
-          <View>
+          <ScrollView
+            bounces={false}
+            showsVerticalScrollIndicator={false}
+            nestedScrollEnabled
+          >
             <Text style={[styles.title, { color: C.text0 }]}>Настройки</Text>
 
             {/* Theme toggle */}
@@ -181,7 +187,7 @@ export function Settings({ visible, onClose }: Props) {
             <Text style={[styles.version, { color: C.text5 }]}>
               LifeTrack MVP v0.1.0 — сделано с душой
             </Text>
-          </View>
+          </ScrollView>
         </Pressable>
       </Animated.View>
     </View>
@@ -201,6 +207,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
+    alignItems: 'center',
   },
   sheet: {
     borderTopLeftRadius: 20,
@@ -208,6 +215,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 40,
     paddingTop: 8,
+    maxHeight: Dimensions.get('window').height * 0.85,
+    maxWidth: 500,
+    width: '100%',
   },
   handle: {
     width: 36,

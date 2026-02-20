@@ -15,7 +15,7 @@
     },
     "ios": {
       "bundleIdentifier": "co.onezee.lifetrack",
-      "supportsTablet": false,
+      "supportsTablet": true,
       "infoPlist": {
         "CFBundleAllowMixedLocalizations": true,
         "ITSAppUsesNonExemptEncryption": false
@@ -30,7 +30,8 @@
     },
     "plugins": [
       "expo-router",
-      "expo-sqlite"
+      "expo-sqlite",
+      "expo-font"
     ],
     "extra": {
       "router": {

@@ -1,9 +1,11 @@
-import { memo, useCallback } from 'react';
+import { memo, useCallback, useEffect } from 'react';
 import { StyleSheet, Text, View, Pressable } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
+  withTiming,
   withSpring,
+  interpolateColor,
   FadeIn,
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
@@ -21,6 +23,11 @@ interface Props {
 export const HabitToggle = memo(function HabitToggle({ habit, done, onToggle, index }: Props) {
   const C = useThemeStore((s) => s.colors);
   const scale = useSharedValue(1);
+  const progress = useSharedValue(done ? 1 : 0);
+
+  useEffect(() => {
+    progress.value = withTiming(done ? 1 : 0, { duration: 250 });
+  }, [done]);
 
   const handlePressIn = useCallback(() => {
     scale.value = withSpring(0.97, { damping: 20, stiffness: 400 });
@@ -37,6 +44,39 @@ export const HabitToggle = memo(function HabitToggle({ habit, done, onToggle, in
 
   const cardStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
+    backgroundColor: interpolateColor(
+      progress.value,
+      [0, 1],
+      [C.card, C.doneBg]
+    ),
+    shadowColor: interpolateColor(
+      progress.value,
+      [0, 1],
+      ['#000000', DONE_COLOR]
+    ),
+    shadowOpacity: 0.04 + progress.value * 0.11,
+  }));
+
+  const toggleStyle = useAnimatedStyle(() => ({
+    borderWidth: 1.5,
+    borderColor: interpolateColor(
+      progress.value,
+      [0, 1],
+      [C.text5, C.green]
+    ),
+    backgroundColor: interpolateColor(
+      progress.value,
+      [0, 1],
+      ['transparent', C.green]
+    ),
+  }));
+
+  const emojiBoxStyle = useAnimatedStyle(() => ({
+    backgroundColor: interpolateColor(
+      progress.value,
+      [0, 1],
+      [C.segBg, `${C.green}18`]
+    ),
   }));
 
   return (
@@ -46,26 +86,11 @@ export const HabitToggle = memo(function HabitToggle({ habit, done, onToggle, in
         onPressIn={handlePressIn}
         onPressOut={handlePressOut}
       >
-        <Animated.View
-          style={[
-            styles.card,
-            {
-              backgroundColor: done ? C.doneBg : C.card,
-              shadowColor: done ? DONE_COLOR : '#000',
-              shadowOpacity: done ? 0.15 : 0.04,
-            },
-            cardStyle,
-          ]}
-        >
+        <Animated.View style={[styles.card, cardStyle]}>
           {/* Emoji */}
-          <View
-            style={[
-              styles.emojiBox,
-              { backgroundColor: done ? `${C.green}18` : C.segBg },
-            ]}
-          >
+          <Animated.View style={[styles.emojiBox, emojiBoxStyle]}>
             <Text style={styles.emoji}>{habit.emoji}</Text>
-          </View>
+          </Animated.View>
 
           {/* Name */}
           <Text style={[styles.name, { color: C.text1 }]} numberOfLines={1}>
@@ -73,33 +98,18 @@ export const HabitToggle = memo(function HabitToggle({ habit, done, onToggle, in
           </Text>
 
           {/* Toggle circle */}
-          <View
-            style={[
-              styles.toggle,
-              done
-                ? { backgroundColor: C.green }
-                : { backgroundColor: 'transparent', borderWidth: 2, borderColor: C.text5 },
-            ]}
-          >
+          <Animated.View style={[styles.toggle, toggleStyle]}>
             {done ? (
-              <CheckIcon />
+              <Text style={styles.checkmark}>✓</Text>
             ) : (
               <Text style={[styles.dash, { color: C.text5 }]}>—</Text>
             )}
-          </View>
+          </Animated.View>
         </Animated.View>
       </Pressable>
     </Animated.View>
   );
 });
-
-function CheckIcon() {
-  return (
-    <View style={styles.checkContainer}>
-      <Text style={styles.checkmark}>✓</Text>
-    </View>
-  );
-}
 
 const styles = StyleSheet.create({
   card: {
@@ -139,10 +149,6 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '300',
     lineHeight: 20,
-  },
-  checkContainer: {
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   checkmark: {
     color: '#FFFFFF',

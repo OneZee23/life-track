@@ -20,6 +20,10 @@
     "production": {
       "ios": {
         "autoIncrement": true
+      },
+      "android": {
+        "autoIncrement": true,
+        "buildType": "app-bundle"
       }
     }
   },
@@ -27,6 +31,10 @@
     "production": {
       "ios": {
         "ascAppId": "6759284836"
+      },
+      "android": {
+        "track": "internal",
+        "releaseStatus": "draft"
       }
     }
   }

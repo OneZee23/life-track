@@ -2,10 +2,10 @@ import { useState, useCallback } from 'react';
 import { Modal, View, Text, Pressable, StyleSheet } from 'react-native';
 import Animated, {
   FadeIn,
-  ZoomIn,
   useSharedValue,
   useAnimatedStyle,
   withTiming,
+  Easing,
   runOnJS,
 } from 'react-native-reanimated';
 import { useThemeStore } from '@/store/useTheme';
@@ -55,7 +55,7 @@ export function StreakCelebration({ streak, onDismiss }: Props) {
         <Confetti active={!closing} />
 
         <View style={styles.content}>
-          <Animated.View entering={ZoomIn.springify().damping(12)} style={styles.center}>
+          <Animated.View entering={FadeIn.duration(350).easing(Easing.out(Easing.back(1.4)))} style={styles.center}>
             <Text style={styles.emoji}>{streakEmoji(streak)}</Text>
             <Text style={[styles.count, { color: C.green }]}>{streak}</Text>
             <Text style={[styles.label, { color: C.text1 }]}>

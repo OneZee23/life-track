@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, memo } from 'react';
 import {
   View,
   Text,
@@ -10,12 +10,17 @@ import {
   StyleSheet,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Animated, { FadeInDown } from 'react-native-reanimated';
-import DraggableFlatList, {
-  ScaleDecorator,
-  type RenderItemParams,
-} from 'react-native-draggable-flatlist';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import Animated, {
+  FadeInDown,
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+} from 'react-native-reanimated';
+import ReorderableList, {
+  useReorderableDrag,
+  useIsActive,
+  type ReorderableListReorderEvent,
+} from 'react-native-reorderable-list';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useThemeStore } from '@/store/useTheme';
@@ -23,6 +28,151 @@ import { useHabitsStore } from '@/store/useHabits';
 import { EMOJIS, MAX_HABITS, HABIT_NAME_LIMIT } from '@/utils/constants';
 import type { Habit } from '@/types';
 import type { Theme } from '@/utils/constants';
+
+/* ─── Habit cell (hooks must be called unconditionally) ─── */
+
+interface HabitCellProps {
+  habit: Habit;
+  index: number;
+  habitsCount: number;
+  editId: string | null;
+  editName: string;
+  editEmoji: string;
+  showEditEmojiPicker: boolean;
+  onEditNameChange: (t: string) => void;
+  onEditEmojiToggle: () => void;
+  onEditEmojiSelect: (e: string) => void;
+  onSave: () => void;
+  onCancelEdit: () => void;
+  onStartEdit: (id: string, name: string, emoji: string) => void;
+  onRemove: (id: string, name: string) => void;
+}
+
+const HabitCell = memo(function HabitCell({
+  habit: h,
+  index,
+  habitsCount,
+  editId,
+  editName,
+  editEmoji,
+  showEditEmojiPicker,
+  onEditNameChange,
+  onEditEmojiToggle,
+  onEditEmojiSelect,
+  onSave,
+  onCancelEdit,
+  onStartEdit,
+  onRemove,
+}: HabitCellProps) {
+  const C = useThemeStore((s) => s.colors);
+  const drag = useReorderableDrag();
+  const isActive = useIsActive();
+  const isFirst = index === 0;
+  const isLast = index === habitsCount - 1;
+  const isEditing = editId === h.id;
+
+  const activeAnim = useSharedValue(0);
+  useEffect(() => {
+    activeAnim.value = withTiming(isActive ? 1 : 0, { duration: 150 });
+  }, [isActive]);
+
+  const cornerStyle = useAnimatedStyle(() => ({
+    borderTopLeftRadius: isFirst ? 14 : 14 * activeAnim.value,
+    borderTopRightRadius: isFirst ? 14 : 14 * activeAnim.value,
+    borderBottomLeftRadius: isLast ? 14 : 14 * activeAnim.value,
+    borderBottomRightRadius: isLast ? 14 : 14 * activeAnim.value,
+  }));
+
+  if (isEditing) {
+    return (
+      <View style={[
+        styles.editForm,
+        { backgroundColor: C.greenLight },
+        isFirst && { borderTopLeftRadius: 14, borderTopRightRadius: 14 },
+        isLast && { borderBottomLeftRadius: 14, borderBottomRightRadius: 14 },
+      ]}>
+        <View style={styles.formRow}>
+          <Pressable
+            style={[styles.emojiBtn, { backgroundColor: C.card, borderColor: C.sep }]}
+            onPress={onEditEmojiToggle}
+          >
+            <Text style={styles.emojiBtnText}>{editEmoji}</Text>
+          </Pressable>
+          <View style={styles.inputWrap}>
+            <TextInput
+              value={editName}
+              onChangeText={onEditNameChange}
+              style={[styles.input, { backgroundColor: C.bg, borderColor: C.sep, color: C.text1 }]}
+              autoFocus
+            />
+            <Text style={[styles.charCount, { color: C.text4 }]}>
+              {editName.length}/{HABIT_NAME_LIMIT}
+            </Text>
+          </View>
+        </View>
+        {showEditEmojiPicker && (
+          <EmojiGrid
+            selected={editEmoji}
+            onSelect={onEditEmojiSelect}
+            colors={C}
+          />
+        )}
+        <View style={styles.formActions}>
+          <Pressable
+            style={[styles.actionBtn, { backgroundColor: C.green }]}
+            onPress={onSave}
+          >
+            <Text style={styles.actionBtnTextWhite}>Сохранить</Text>
+          </Pressable>
+          <Pressable
+            style={[styles.actionBtn, { backgroundColor: C.card, borderWidth: 1, borderColor: C.sep }]}
+            onPress={onCancelEdit}
+          >
+            <Text style={[styles.actionBtnText, { color: C.text2 }]}>Отмена</Text>
+          </Pressable>
+        </View>
+      </View>
+    );
+  }
+
+  return (
+    <Animated.View style={[{ overflow: 'hidden' }, cornerStyle]}>
+      <Pressable
+        onLongPress={drag}
+        delayLongPress={200}
+        style={[
+          styles.habitRow,
+          { backgroundColor: C.card },
+          !isLast && !isActive && { borderBottomWidth: 0.5, borderBottomColor: C.sep },
+        ]}
+      >
+        <View style={styles.dragHandle}>
+          <Ionicons name="menu" size={18} color={C.text5} />
+        </View>
+        <View style={[styles.habitEmoji, { backgroundColor: C.bg }]}>
+          <Text style={styles.habitEmojiText}>{h.emoji}</Text>
+        </View>
+        <Text style={[styles.habitName, { color: C.text1 }]} numberOfLines={1}>
+          {h.name}
+        </Text>
+        <Pressable
+          style={[styles.iconBtn, { backgroundColor: C.segBg }]}
+          onPress={() => onStartEdit(h.id, h.name, h.emoji)}
+        >
+          <Ionicons name="pencil" size={15} color={C.blue} />
+        </Pressable>
+        <Pressable
+          style={[styles.iconBtn, { backgroundColor: 'rgba(255,59,48,0.1)' }]}
+          onPress={() => onRemove(h.id, h.name)}
+        >
+          <Ionicons name="close" size={14} color="#FF3B30" />
+        </Pressable>
+      </Pressable>
+    </Animated.View>
+  );
+});
+
+/* ─── Main screen ─── */
 
 export default function HabitsScreen() {
   const C = useThemeStore((s) => s.colors);
@@ -56,7 +206,7 @@ export default function HabitsScreen() {
     setShowEmojiPicker(false);
   };
 
-  const handleSave = async () => {
+  const handleSave = useCallback(async () => {
     const trimmed = editName.trim();
     if (!trimmed || !editId) return;
     await updateHabit(editId, {
@@ -65,7 +215,7 @@ export default function HabitsScreen() {
     });
     setEditId(null);
     setShowEditEmojiPicker(false);
-  };
+  }, [editId, editName, editEmoji, updateHabit]);
 
   const handleRemove = useCallback((id: string, name: string) => {
     Alert.alert(
@@ -85,121 +235,53 @@ export default function HabitsScreen() {
     );
   }, [removeHabit]);
 
-  const startEdit = (id: string, name: string, emoji: string) => {
+  const startEdit = useCallback((id: string, name: string, emoji: string) => {
     setEditId(id);
     setEditName(name);
     setEditEmoji(emoji);
     setShowEditEmojiPicker(false);
-  };
+  }, []);
 
-  const onDragEnd = useCallback(({ from, to }: { from: number; to: number }) => {
-    if (from !== to) {
-      reorderHabits(from, to);
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    }
+  const handleReorder = useCallback(({ from, to }: ReorderableListReorderEvent) => {
+    reorderHabits(from, to);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
   }, [reorderHabits]);
 
-  const renderItem = useCallback(({ item: h, drag, isActive, getIndex }: RenderItemParams<Habit>) => {
-    const idx = getIndex() ?? 0;
-    const isFirst = idx === 0;
-    const isLast = idx === habits.length - 1;
+  const handleEditNameChange = useCallback((t: string) => {
+    setEditName(t.slice(0, HABIT_NAME_LIMIT));
+  }, []);
 
-    if (editId === h.id) {
-      return (
-        <View style={[
-          styles.editForm,
-          { backgroundColor: C.greenLight },
-          isFirst && { borderTopLeftRadius: 14, borderTopRightRadius: 14 },
-          isLast && { borderBottomLeftRadius: 14, borderBottomRightRadius: 14 },
-        ]}>
-          <View style={styles.formRow}>
-            <Pressable
-              style={[styles.emojiBtn, { backgroundColor: C.card, borderColor: C.sep }]}
-              onPress={() => setShowEditEmojiPicker(!showEditEmojiPicker)}
-            >
-              <Text style={styles.emojiBtnText}>{editEmoji}</Text>
-            </Pressable>
-            <View style={styles.inputWrap}>
-              <TextInput
-                value={editName}
-                onChangeText={(t) => setEditName(t.slice(0, HABIT_NAME_LIMIT))}
-                style={[styles.input, { backgroundColor: C.bg, borderColor: C.sep, color: C.text1 }]}
-                autoFocus
-              />
-              <Text style={[styles.charCount, { color: C.text4 }]}>
-                {editName.length}/{HABIT_NAME_LIMIT}
-              </Text>
-            </View>
-          </View>
-          {showEditEmojiPicker && (
-            <EmojiGrid
-              selected={editEmoji}
-              onSelect={(e) => {
-                setEditEmoji(e);
-                setShowEditEmojiPicker(false);
-              }}
-              colors={C}
-            />
-          )}
-          <View style={styles.formActions}>
-            <Pressable
-              style={[styles.actionBtn, { backgroundColor: C.green }]}
-              onPress={handleSave}
-            >
-              <Text style={styles.actionBtnTextWhite}>Сохранить</Text>
-            </Pressable>
-            <Pressable
-              style={[styles.actionBtn, { backgroundColor: C.card, borderWidth: 1, borderColor: C.sep }]}
-              onPress={() => setEditId(null)}
-            >
-              <Text style={[styles.actionBtnText, { color: C.text2 }]}>Отмена</Text>
-            </Pressable>
-          </View>
-        </View>
-      );
-    }
+  const handleEditEmojiToggle = useCallback(() => {
+    setShowEditEmojiPicker((prev) => !prev);
+  }, []);
 
-    return (
-      <ScaleDecorator>
-        <Pressable
-          onLongPress={drag}
-          disabled={isActive}
-          style={[
-            styles.habitRow,
-            { backgroundColor: C.card },
-            isFirst && { borderTopLeftRadius: 14, borderTopRightRadius: 14 },
-            isLast && { borderBottomLeftRadius: 14, borderBottomRightRadius: 14 },
-            isActive && { borderRadius: 14, shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 8, shadowOffset: { width: 0, height: 4 }, elevation: 8 },
-            !isLast && !isActive && { borderBottomWidth: 0.5, borderBottomColor: C.sep },
-          ]}
-        >
-          {/* Drag handle */}
-          <View style={styles.dragHandle}>
-            <Ionicons name="menu" size={18} color={C.text5} />
-          </View>
+  const handleEditEmojiSelect = useCallback((e: string) => {
+    setEditEmoji(e);
+    setShowEditEmojiPicker(false);
+  }, []);
 
-          <View style={[styles.habitEmoji, { backgroundColor: C.bg }]}>
-            <Text style={styles.habitEmojiText}>{h.emoji}</Text>
-          </View>
-          <Text style={[styles.habitName, { color: C.text1 }]} numberOfLines={1}>
-            {h.name}
-          </Text>
-          <Pressable
-            style={[styles.iconBtn, { backgroundColor: C.segBg }]}
-            onPress={() => startEdit(h.id, h.name, h.emoji)}
-          >
-            <Ionicons name="pencil" size={15} color={C.blue} />
-          </Pressable>
-          <Pressable
-            style={[styles.iconBtn, { backgroundColor: 'rgba(255,59,48,0.1)' }]}
-            onPress={() => handleRemove(h.id, h.name)}
-          >
-            <Ionicons name="close" size={14} color="#FF3B30" />
-          </Pressable>
-        </Pressable>
-      </ScaleDecorator>
-    );
-  }, [C, editId, editName, editEmoji, showEditEmojiPicker, habits.length, handleRemove]);
+  const handleCancelEdit = useCallback(() => {
+    setEditId(null);
+  }, []);
+
+  const renderItem = useCallback(({ item, index }: { item: Habit; index: number }) => (
+    <HabitCell
+      habit={item}
+      index={index}
+      habitsCount={habits.length}
+      editId={editId}
+      editName={editName}
+      editEmoji={editEmoji}
+      showEditEmojiPicker={showEditEmojiPicker}
+      onEditNameChange={handleEditNameChange}
+      onEditEmojiToggle={handleEditEmojiToggle}
+      onEditEmojiSelect={handleEditEmojiSelect}
+      onSave={handleSave}
+      onCancelEdit={handleCancelEdit}
+      onStartEdit={startEdit}
+      onRemove={handleRemove}
+    />
+  ), [habits.length, editId, editName, editEmoji, showEditEmojiPicker, handleSave, startEdit, handleRemove, handleEditNameChange, handleEditEmojiToggle, handleEditEmojiSelect, handleCancelEdit]);
 
   const keyExtractor = useCallback((item: Habit) => item.id, []);
 
@@ -292,7 +374,7 @@ export default function HabitsScreen() {
   ), [adding, newEmoji, newName, showEmojiPicker, C, habits.length]);
 
   return (
-    <GestureHandlerRootView style={[styles.root, { backgroundColor: C.bg, paddingTop: insets.top }]}>
+    <View style={[styles.root, { backgroundColor: C.bg, paddingTop: insets.top }]}>
       <KeyboardAvoidingView
         style={styles.root}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -305,22 +387,20 @@ export default function HabitsScreen() {
           </Text>
         </View>
 
-        <DraggableFlatList
+        <ReorderableList
           data={habits}
           renderItem={renderItem}
           keyExtractor={keyExtractor}
-          onDragEnd={onDragEnd}
-          onDragBegin={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-          }}
-          containerStyle={styles.listContainer}
+          onReorder={handleReorder}
+          shouldUpdateActiveItem
+          style={styles.listContainer}
           contentContainerStyle={styles.content}
           ListFooterComponent={ListFooter}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         />
       </KeyboardAvoidingView>
-    </GestureHandlerRootView>
+    </View>
   );
 }
 
@@ -363,6 +443,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 4,
     paddingBottom: 10,
+    maxWidth: 600,
+    width: '100%',
+    alignSelf: 'center',
   },
   title: {
     fontSize: 32,
@@ -379,6 +462,9 @@ const styles = StyleSheet.create({
   content: {
     paddingHorizontal: 16,
     paddingBottom: 120,
+    maxWidth: 600,
+    width: '100%',
+    alignSelf: 'center',
   },
   footer: {
     marginTop: 12,

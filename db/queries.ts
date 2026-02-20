@@ -102,14 +102,13 @@ export async function reorderHabits(
   db: SQLiteDatabase,
   orderedIds: string[]
 ): Promise<void> {
-  await db.withTransactionAsync(async () => {
-    for (let i = 0; i < orderedIds.length; i++) {
-      await db.runAsync(
-        "UPDATE habits SET sort_order = ?, updated_at = datetime('now') WHERE id = ?",
-        [i, orderedIds[i]]
-      );
-    }
-  });
+  if (!orderedIds.length) return;
+  const cases = orderedIds.map((id, i) => `WHEN '${id}' THEN ${i}`).join(' ');
+  const placeholders = orderedIds.map(() => '?').join(',');
+  await db.runAsync(
+    `UPDATE habits SET sort_order = CASE id ${cases} END, updated_at = datetime('now') WHERE id IN (${placeholders})`,
+    orderedIds
+  );
 }
 
 // ─── Checkins ───

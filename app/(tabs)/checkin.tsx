@@ -10,10 +10,10 @@ import { useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
   FadeIn,
-  ZoomIn,
   useSharedValue,
   useAnimatedStyle,
   withTiming,
+  Easing,
 } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
@@ -149,7 +149,7 @@ export default function CheckInScreen() {
           contentContainerStyle={styles.savedContent}
           showsVerticalScrollIndicator={false}
         >
-          <Animated.View entering={ZoomIn.springify().damping(12)} style={styles.savedCenter}>
+          <Animated.View entering={FadeIn.duration(350).easing(Easing.out(Easing.back(1.4)))} style={styles.savedCenter}>
             <View style={[styles.partyCircle, { backgroundColor: C.greenLight }]}>
               <Text style={styles.partyEmoji}>🎉</Text>
             </View>
@@ -283,6 +283,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 4,
     paddingBottom: 18,
+    maxWidth: 600,
+    width: '100%',
+    alignSelf: 'center',
   },
   title: {
     fontSize: 32,
@@ -304,6 +307,9 @@ const styles = StyleSheet.create({
   listContent: {
     paddingHorizontal: 16,
     paddingBottom: 120,
+    maxWidth: 600,
+    width: '100%',
+    alignSelf: 'center',
   },
   habitsList: {
     gap: 8,
@@ -348,6 +354,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: 120,
     alignItems: 'center',
+    maxWidth: 600,
+    width: '100%',
+    alignSelf: 'center',
   },
   savedCenter: {
     alignItems: 'center',
