@@ -12,6 +12,7 @@ build/
 *.key
 *.mobileprovision
 *.orig.*
+play-service-account.json
 web-build/
 ios/
 android/

@@ -16,6 +16,7 @@
     "release:android": "eas build --platform android --profile production && eas submit --platform android --latest",
     "build:all": "eas build --platform all --profile production",
     "release:all": "eas build --platform all --profile production && eas submit --platform all --latest",
+    "builds": "eas build:list",
     "reset": "expo start --clear"
   },
   "dependencies": {

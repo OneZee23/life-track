@@ -5,7 +5,9 @@ import Animated, {
   useAnimatedStyle,
   withTiming,
   withSpring,
+  withSequence,
   interpolateColor,
+  Easing,
   FadeIn,
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
@@ -24,17 +26,29 @@ export const HabitToggle = memo(function HabitToggle({ habit, done, onToggle, in
   const C = useThemeStore((s) => s.colors);
   const scale = useSharedValue(1);
   const progress = useSharedValue(done ? 1 : 0);
+  const togglePop = useSharedValue(1);
 
   useEffect(() => {
-    progress.value = withTiming(done ? 1 : 0, { duration: 250 });
+    progress.value = withTiming(done ? 1 : 0, {
+      duration: 120,
+      easing: Easing.out(Easing.cubic),
+    });
+    if (done) {
+      togglePop.value = withSequence(
+        withTiming(1.18, { duration: 80, easing: Easing.out(Easing.cubic) }),
+        withTiming(1, { duration: 100, easing: Easing.out(Easing.cubic) })
+      );
+    } else {
+      togglePop.value = withTiming(1, { duration: 80 });
+    }
   }, [done]);
 
   const handlePressIn = useCallback(() => {
-    scale.value = withSpring(0.97, { damping: 20, stiffness: 400 });
+    scale.value = withTiming(0.96, { duration: 60 });
   }, []);
 
   const handlePressOut = useCallback(() => {
-    scale.value = withSpring(1, { damping: 15, stiffness: 200 });
+    scale.value = withSpring(1, { damping: 20, stiffness: 500 });
   }, []);
 
   const handlePress = useCallback(() => {
@@ -58,6 +72,7 @@ export const HabitToggle = memo(function HabitToggle({ habit, done, onToggle, in
   }));
 
   const toggleStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: togglePop.value }],
     borderWidth: 1.5,
     borderColor: interpolateColor(
       progress.value,
