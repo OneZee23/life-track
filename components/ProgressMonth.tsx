@@ -4,7 +4,7 @@ import * as Haptics from 'expo-haptics';
 import { useThemeStore } from '@/store/useTheme';
 import { useCheckinsStore } from '@/store/useCheckins';
 import { NavHeader } from '@/components/ui/NavHeader';
-import { MONTH_NAMES_RU, WEEKDAYS_SHORT_RU, dayOfWeek, daysInMonth, formatDate, isToday } from '@/utils/dates';
+import { MONTH_NAMES_RU, WEEKDAYS_SHORT_RU, dayOfWeek, daysInMonth, formatDate, isToday, pluralDays } from '@/utils/dates';
 import { DONE_COLOR } from '@/utils/constants';
 import type { DayStatus } from '@/types';
 
@@ -35,6 +35,7 @@ export function ProgressMonth({ year, month, setMonth, habitFilter, goWeek }: Pr
     const cells: Array<{ day: number; status: DayStatus; today: boolean; date: Date } | null> = [];
     let best = 0;
     let cur = 0;
+    const now = new Date();
 
     for (let i = 0; i < firstDow; i++) cells.push(null);
 
@@ -43,6 +44,7 @@ export function ProgressMonth({ year, month, setMonth, habitFilter, goWeek }: Pr
       const dateStr = formatDate(date);
       const dayData = data[dateStr];
       const today = isToday(date);
+      const isFuture = date > now && !today;
       let status: DayStatus = null;
       let isDone = false;
 
@@ -63,10 +65,11 @@ export function ProgressMonth({ year, month, setMonth, habitFilter, goWeek }: Pr
         }
       }
 
+      // Don't let future days break the current streak
       if (isDone) {
         cur++;
         best = Math.max(best, cur);
-      } else if (!today) {
+      } else if (!today && !isFuture) {
         cur = 0;
       }
 
@@ -99,7 +102,7 @@ export function ProgressMonth({ year, month, setMonth, habitFilter, goWeek }: Pr
         <View style={styles.weekdayRow}>
           {WEEKDAYS_SHORT_RU.map((d) => (
             <View key={d} style={styles.dayCell}>
-              <Text style={[styles.weekdayText, { color: C.text4 }]}>{d}</Text>
+              <Text style={[styles.weekdayText, { color: C.text4 }]} maxFontSizeMultiplier={1.2}>{d}</Text>
             </View>
           ))}
         </View>
@@ -129,6 +132,7 @@ export function ProgressMonth({ year, month, setMonth, habitFilter, goWeek }: Pr
                   ]}
                 >
                   <Text
+                    maxFontSizeMultiplier={1.2}
                     style={[
                       styles.dayText,
                       {
@@ -152,14 +156,14 @@ export function ProgressMonth({ year, month, setMonth, habitFilter, goWeek }: Pr
           <Text style={[styles.streakLabel, { color: C.text3 }]}>ЛУЧШАЯ СЕРИЯ</Text>
           <View style={styles.streakValueRow}>
             <Text style={[styles.streakValue, { color: C.green }]}>{bestStreak}</Text>
-            <Text style={[styles.streakUnit, { color: C.text4 }]}>дней</Text>
+            <Text style={[styles.streakUnit, { color: C.text4 }]}>{pluralDays(bestStreak)}</Text>
           </View>
         </View>
         <View style={[styles.streakCard, { backgroundColor: C.card }]}>
           <Text style={[styles.streakLabel, { color: C.text3 }]}>ТЕКУЩАЯ СЕРИЯ</Text>
           <View style={styles.streakValueRow}>
             <Text style={[styles.streakValue, { color: C.green }]}>{currentStreak}</Text>
-            <Text style={[styles.streakUnit, { color: C.text4 }]}>дней</Text>
+            <Text style={[styles.streakUnit, { color: C.text4 }]}>{pluralDays(currentStreak)}</Text>
           </View>
         </View>
       </View>

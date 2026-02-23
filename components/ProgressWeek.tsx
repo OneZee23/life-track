@@ -105,7 +105,7 @@ export function ProgressWeek({ weekStart: ws, setWeekStart, habits, habitFilter,
                 },
               ]}
             >
-              <Text style={[styles.dayLabel, { color: today ? C.green : C.text4 }]}>
+              <Text style={[styles.dayLabel, { color: today ? C.green : C.text4 }]} maxFontSizeMultiplier={1.2}>
                 {WEEKDAYS_SHORT_RU[i]}
               </Text>
               <View
@@ -123,7 +123,7 @@ export function ProgressWeek({ weekStart: ws, setWeekStart, habits, habitFilter,
                 {isDone && !today ? (
                   <Ionicons name="checkmark" size={12} color={C.green} />
                 ) : (
-                  <Text style={[styles.dayNum, { color: today ? C.green : C.text4 }]}>
+                  <Text style={[styles.dayNum, { color: today ? C.green : C.text4 }]} maxFontSizeMultiplier={1.2}>
                     {d.getDate()}
                   </Text>
                 )}

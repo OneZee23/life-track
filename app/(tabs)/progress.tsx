@@ -1,9 +1,10 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
-import { View, Text, ScrollView, StyleSheet } from 'react-native';
+import { View, Text, Pressable, ScrollView, StyleSheet } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { FadeInLeft, FadeInRight, runOnJS } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useFocusEffect } from 'expo-router';
+import * as Haptics from 'expo-haptics';
 import { useThemeStore } from '@/store/useTheme';
 import { useHabitsStore } from '@/store/useHabits';
 import { Chip } from '@/components/ui/Chip';
@@ -13,19 +14,23 @@ import { ProgressMonth } from '@/components/ProgressMonth';
 import { ProgressWeek } from '@/components/ProgressWeek';
 import { ProgressDay } from '@/components/ProgressDay';
 import { weekStart, formatDate, MONTH_NAMES_RU } from '@/utils/dates';
+import { useTabBarOverlap } from '@/hooks/useTabBarOverlap';
 
 type Level = 'year' | 'month' | 'week' | 'day';
+type TopLevel = 'month' | 'year';
 
 export default function ProgressScreen() {
   const C = useThemeStore((s) => s.colors);
   const allHabits = useHabitsStore((s) => s.allHabits);
   const insets = useSafeAreaInsets();
+  const tabOverlap = useTabBarOverlap();
   const now = new Date();
 
   const navigation = useNavigation<any>();
   const lastDateRef = useRef(formatDate(now));
 
   const [level, setLevel] = useState<Level>('month');
+  const [topLevel, setTopLevel] = useState<TopLevel>('month');
   const [habitFilter, setHabitFilter] = useState<string | null>(null);
   const [navYear, setNavYear] = useState(now.getFullYear());
   const [navMonth, setNavMonth] = useState(now.getMonth());
@@ -40,6 +45,7 @@ export default function ProgressScreen() {
       if (todayStr !== lastDateRef.current) {
         lastDateRef.current = todayStr;
         setLevel('month');
+        setTopLevel('month');
         setNavYear(today.getFullYear());
         setNavMonth(today.getMonth());
       }
@@ -54,6 +60,7 @@ export default function ProgressScreen() {
       if (!isHome) {
         e.preventDefault();
         setLevel('month');
+        setTopLevel('month');
         setNavYear(today.getFullYear());
         setNavMonth(today.getMonth());
       }
@@ -61,8 +68,15 @@ export default function ProgressScreen() {
     return unsubscribe;
   }, [navigation, level, navYear, navMonth]);
 
+  const switchTopLevel = (t: TopLevel) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setTopLevel(t);
+    setLevel(t);
+  };
+
   const goMonth = (m: number) => {
     setNavMonth(m);
+    setTopLevel('month');
     setLevel('month');
   };
 
@@ -79,7 +93,6 @@ export default function ProgressScreen() {
   const goBack = () => {
     if (level === 'day') setLevel('week');
     else if (level === 'week') setLevel('month');
-    else if (level === 'month') setLevel('year');
   };
 
   const handleSetMonth = (m: number) => {
@@ -164,24 +177,53 @@ export default function ProgressScreen() {
       runOnJS(handleSwipeEnd)(e.translationX);
     });
 
-  const backLabel =
-    level === 'year'
-      ? ''
-      : level === 'month'
-        ? 'Год'
-        : level === 'week'
-          ? MONTH_NAMES_RU[navMonth]
-          : 'Неделя';
+  const isTopLevel = level === 'month' || level === 'year';
+  const backLabel = level === 'week' ? MONTH_NAMES_RU[navMonth] : 'Неделя';
 
   return (
     <View style={[styles.root, { backgroundColor: C.bg, paddingTop: insets.top }]}>
       {/* Header */}
-      {level === 'year' && (
+      {isTopLevel ? (
         <View style={styles.header}>
           <Text style={[styles.title, { color: C.text0 }]}>Прогресс</Text>
+
+          {/* Segmented control: Месяц / Год */}
+          <View style={[styles.segment, { backgroundColor: C.segBg }]}>
+            <Pressable
+              onPress={() => switchTopLevel('month')}
+              style={[
+                styles.segBtn,
+                topLevel === 'month' && { backgroundColor: C.segActive },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.segLabel,
+                  { color: topLevel === 'month' ? C.text0 : C.text3 },
+                ]}
+              >
+                Месяц
+              </Text>
+            </Pressable>
+            <Pressable
+              onPress={() => switchTopLevel('year')}
+              style={[
+                styles.segBtn,
+                topLevel === 'year' && { backgroundColor: C.segActive },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.segLabel,
+                  { color: topLevel === 'year' ? C.text0 : C.text3 },
+                ]}
+              >
+                Год
+              </Text>
+            </Pressable>
+          </View>
         </View>
-      )}
-      {level !== 'year' && (
+      ) : (
         <View style={styles.backHeader}>
           <BackBtn label={backLabel} onPress={goBack} />
         </View>
@@ -213,7 +255,7 @@ export default function ProgressScreen() {
       {/* Content with swipe navigation */}
       <GestureDetector gesture={swipeGesture}>
         <ScrollView
-          contentContainerStyle={styles.content}
+          contentContainerStyle={[styles.content, { paddingBottom: tabOverlap + 16 }]}
           showsVerticalScrollIndicator={false}
         >
           <Animated.View
@@ -276,13 +318,28 @@ const styles = StyleSheet.create({
     fontSize: 32,
     fontWeight: '700',
     letterSpacing: -0.5,
+    marginBottom: 12,
+  },
+  segment: {
+    flexDirection: 'row',
+    borderRadius: 8,
+    padding: 2,
+  },
+  segBtn: {
+    flex: 1,
+    paddingVertical: 6,
+    borderRadius: 7,
+    alignItems: 'center',
+  },
+  segLabel: {
+    fontSize: 13,
+    fontWeight: '600',
   },
   backHeader: {
     paddingHorizontal: 20,
     paddingTop: 4,
   },
   chipBar: {
-    height: 36,
     marginBottom: 10,
   },
   chipRow: {
@@ -292,7 +349,6 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingHorizontal: 16,
-    paddingBottom: 120,
     maxWidth: 600,
     width: '100%',
     alignSelf: 'center',

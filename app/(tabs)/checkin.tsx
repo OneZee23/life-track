@@ -5,8 +5,9 @@ import {
   ScrollView,
   Pressable,
   StyleSheet,
+  AppState,
 } from 'react-native';
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
   FadeIn,
@@ -23,8 +24,8 @@ import { useCheckinsStore } from '@/store/useCheckins';
 import { HabitToggle } from '@/components/HabitToggle';
 import { Confetti } from '@/components/Confetti';
 import { StreakCelebration } from '@/components/StreakCelebration';
-import { Settings } from '@/components/Settings';
 import { yesterday, monthGenitive, formatDate, WEEKDAYS_FULL_RU, dayOfWeek } from '@/utils/dates';
+import { useTabBarOverlap } from '@/hooks/useTabBarOverlap';
 
 export default function CheckInScreen() {
   const C = useThemeStore((s) => s.colors);
@@ -33,6 +34,8 @@ export default function CheckInScreen() {
   const saveDay = useCheckinsStore((s) => s.saveDay);
   const getStreak = useCheckinsStore((s) => s.getStreak);
   const insets = useSafeAreaInsets();
+  const tabOverlap = useTabBarOverlap();
+  const router = useRouter();
 
   const [dateStr, setDateStr] = useState(() => formatDate(yesterday()));
   const y = yesterday();
@@ -40,7 +43,6 @@ export default function CheckInScreen() {
   const [vals, setVals] = useState<Record<string, boolean>>({});
   const [saved, setSaved] = useState(false);
   const [confetti, setConfetti] = useState(false);
-  const [settingsOpen, setSettingsOpen] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [streak, setStreak] = useState(0);
   const [showStreak, setShowStreak] = useState(false);
@@ -57,6 +59,24 @@ export default function CheckInScreen() {
       }
     }, [dateStr])
   );
+
+  // Refresh date when app returns from background
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') {
+        const fresh = formatDate(yesterday());
+        setDateStr((prev) => {
+          if (prev !== fresh) {
+            setSaved(false);
+            setLoaded(false);
+            return fresh;
+          }
+          return prev;
+        });
+      }
+    });
+    return () => sub.remove();
+  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -113,7 +133,7 @@ export default function CheckInScreen() {
 
   const doneCount = Object.values(vals).filter(Boolean).length;
   const total = habits.length;
-  const dayLabel = `${y.getDate()} ${monthGenitive(y.getMonth())}, ${WEEKDAYS_FULL_RU[dayOfWeek(y)].toLowerCase()}`;
+  const dayLabel = `Вчера, ${y.getDate()} ${monthGenitive(y.getMonth())}, ${WEEKDAYS_FULL_RU[dayOfWeek(y)].toLowerCase()}`;
 
   const progressWidth = useSharedValue(0);
   useEffect(() => {
@@ -137,7 +157,7 @@ export default function CheckInScreen() {
         </View>
         <Pressable
           style={[styles.gearBtn, { backgroundColor: C.segBg }]}
-          onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setSettingsOpen(true); }}
+          onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); router.push('/settings'); }}
         >
           <Ionicons name="settings-outline" size={20} color={C.text3} />
         </Pressable>
@@ -146,7 +166,7 @@ export default function CheckInScreen() {
       {saved ? (
         /* ─── Saved state ─── */
         <ScrollView
-          contentContainerStyle={styles.savedContent}
+          contentContainerStyle={[styles.savedContent, { paddingBottom: tabOverlap + 32 }]}
           showsVerticalScrollIndicator={false}
         >
           <Animated.View entering={FadeIn.duration(350).easing(Easing.out(Easing.back(1.4)))} style={styles.savedCenter}>
@@ -217,54 +237,56 @@ export default function CheckInScreen() {
         </ScrollView>
       ) : (
         /* ─── Check-in state ─── */
-        <ScrollView
-          contentContainerStyle={styles.listContent}
-          showsVerticalScrollIndicator={false}
-        >
-          <View style={styles.habitsList}>
-            {habits.map((h, i) => (
-              <HabitToggle
-                key={h.id}
-                habit={h}
-                done={vals[h.id] ?? false}
-                onToggle={toggle}
-                index={i}
-              />
-            ))}
-          </View>
-
-          {/* Progress bar */}
-          <View style={styles.progressRow}>
-            <View style={[styles.progressTrack, { backgroundColor: C.segBg }]}>
-              <Animated.View
-                style={[
-                  styles.progressFill,
-                  { backgroundColor: C.green },
-                  progressStyle,
-                ]}
-              />
-            </View>
-            <Text
-              style={[
-                styles.progressText,
-                { color: doneCount === total ? C.green : C.text3 },
-              ]}
-            >
-              {doneCount}/{total}
-            </Text>
-          </View>
-
-          {/* Done button */}
-          <Pressable
-            style={[styles.doneBtn, { backgroundColor: C.green }]}
-            onPress={save}
+        <>
+          <ScrollView
+            contentContainerStyle={[styles.listContent, { paddingBottom: tabOverlap + 16 }]}
+            showsVerticalScrollIndicator={false}
           >
-            <Text style={styles.doneBtnText}>Готово ✓</Text>
-          </Pressable>
-        </ScrollView>
+            <View style={styles.habitsList}>
+              {habits.map((h, i) => (
+                <HabitToggle
+                  key={h.id}
+                  habit={h}
+                  done={vals[h.id] ?? false}
+                  onToggle={toggle}
+                  index={i}
+                />
+              ))}
+            </View>
+          </ScrollView>
+
+          {/* Fixed bottom: progress + done button */}
+          <View style={[styles.bottomBar, { backgroundColor: C.bg, paddingBottom: Math.max(tabOverlap, 16) }]}>
+            <View style={styles.progressRow}>
+              <View style={[styles.progressTrack, { backgroundColor: C.segBg }]}>
+                <Animated.View
+                  style={[
+                    styles.progressFill,
+                    { backgroundColor: C.green },
+                    progressStyle,
+                  ]}
+                />
+              </View>
+              <Text
+                style={[
+                  styles.progressText,
+                  { color: doneCount === total ? C.green : C.text3 },
+                ]}
+              >
+                {doneCount}/{total}
+              </Text>
+            </View>
+
+            <Pressable
+              style={[styles.doneBtn, { backgroundColor: C.green }]}
+              onPress={save}
+            >
+              <Text style={styles.doneBtnText}>Готово ✓</Text>
+            </Pressable>
+          </View>
+        </>
       )}
 
-      <Settings visible={settingsOpen} onClose={() => setSettingsOpen(false)} />
       {showStreak && (
         <StreakCelebration streak={streak} onDismiss={() => setShowStreak(false)} />
       )}
@@ -306,7 +328,6 @@ const styles = StyleSheet.create({
   },
   listContent: {
     paddingHorizontal: 16,
-    paddingBottom: 120,
     maxWidth: 600,
     width: '100%',
     alignSelf: 'center',
@@ -314,11 +335,17 @@ const styles = StyleSheet.create({
   habitsList: {
     gap: 8,
   },
+  bottomBar: {
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    maxWidth: 600,
+    width: '100%',
+    alignSelf: 'center',
+  },
   progressRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    marginTop: 18,
     marginBottom: 14,
     paddingHorizontal: 4,
   },
@@ -352,7 +379,6 @@ const styles = StyleSheet.create({
   },
   savedContent: {
     paddingHorizontal: 16,
-    paddingBottom: 120,
     alignItems: 'center',
     maxWidth: 600,
     width: '100%',

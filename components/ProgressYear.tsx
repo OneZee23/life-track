@@ -15,9 +15,14 @@ import {
   daysInMonth,
   formatDate,
   isToday,
+  pluralDays,
 } from '@/utils/dates';
 import { DONE_COLOR } from '@/utils/constants';
 import type { DayStatus } from '@/types';
+
+const CELL = 14;
+const GAP = 2;
+const GRID_WIDTH = CELL * 7 + GAP * 6;
 
 interface Props {
   year: number;
@@ -81,14 +86,14 @@ export function ProgressYear({ year, setYear, habitFilter, goMonth }: Props) {
           <Text style={[styles.summaryLabel, { color: C.text4 }]}>Выполнено</Text>
           <Text style={[styles.summaryValue, { color: C.green }]}>
             {yearStats.totalDone}{' '}
-            <Text style={[styles.summaryUnit, { color: C.text4 }]}>дней</Text>
+            <Text style={[styles.summaryUnit, { color: C.text4 }]}>{pluralDays(yearStats.totalDone)}</Text>
           </Text>
         </View>
         <View style={[styles.summaryCard, { backgroundColor: C.card }]}>
           <Text style={[styles.summaryLabel, { color: C.text4 }]}>Затрекано</Text>
           <Text style={[styles.summaryValue, { color: C.text0 }]}>
             {yearStats.totalTracked}{' '}
-            <Text style={[styles.summaryUnit, { color: C.text4 }]}>дней</Text>
+            <Text style={[styles.summaryUnit, { color: C.text4 }]}>{pluralDays(yearStats.totalTracked)}</Text>
           </Text>
         </View>
       </View>
@@ -163,10 +168,10 @@ const MonthCard = memo(function MonthCard({
   const dim = daysInMonth(year, month);
   const firstDow = dayOfWeek(new Date(year, month, 1));
 
-  const { cells, doneCount, trackedCount } = useMemo(() => {
+  const { cells, doneCount, elapsedDays } = useMemo(() => {
     const cells: Array<{ day: number; status: DayStatus; today: boolean } | null> = [];
     let done = 0;
-    let tracked = 0;
+    let elapsed = 0;
 
     // Empty cells before first day
     for (let i = 0; i < firstDow; i++) cells.push(null);
@@ -176,20 +181,21 @@ const MonthCard = memo(function MonthCard({
       const dateStr = formatDate(date);
       const dayData = data[dateStr];
       const today = isToday(date);
+      const isPastDay = date < now && !today;
       let status: DayStatus = null;
+
+      if (isPastDay || today) elapsed++;
 
       if (dayData) {
         if (habitFilter) {
           const v = dayData[habitFilter];
           if (v !== undefined) {
-            tracked++;
             status = v === 1 ? 'all' : 'none';
             if (v === 1) done++;
           }
         } else {
           const values = Object.values(dayData);
           if (values.length) {
-            tracked++;
             const doneVals = values.filter((v) => v === 1).length;
             if (doneVals === values.length) {
               status = 'all';
@@ -210,10 +216,12 @@ const MonthCard = memo(function MonthCard({
     // Pad to complete weeks
     while (cells.length % 7 !== 0) cells.push(null);
 
-    return { cells, doneCount: done, trackedCount: tracked };
+    return { cells, doneCount: done, elapsedDays: elapsed };
   }, [year, month, data, habitFilter]);
 
-  const pct = trackedCount > 0 ? Math.round((doneCount / trackedCount) * 100) : null;
+  const pct = elapsedDays > 0 ? Math.round((doneCount / elapsedDays) * 100) : null;
+  const missedCount = elapsedDays - doneCount;
+  const pctColor = pct !== null && pct >= 70 ? C.green : pct !== null && pct >= 40 ? '#E8C94A' : C.text4;
 
   return (
     <Pressable
@@ -229,50 +237,44 @@ const MonthCard = memo(function MonthCard({
       ]}
     >
       <View style={styles.monthHeader}>
-        <View style={styles.monthTitle}>
-          <Text style={[styles.monthName, { color: isCurrent ? C.green : C.text0 }]}>
-            {MONTH_NAMES_RU[month]}
-          </Text>
-          {pct !== null && (
-            <View
-              style={[
-                styles.pctBadge,
-                {
-                  backgroundColor:
-                    pct >= 70 ? C.greenLight : pct >= 40 ? 'rgba(232,201,74,0.12)' : C.segBg,
-                },
-              ]}
-            >
-              <Text
-                style={[
-                  styles.pctText,
-                  {
-                    color: pct >= 70 ? C.green : pct >= 40 ? '#E8C94A' : '#AEAEB2',
-                  },
-                ]}
-              >
-                {pct}%
-              </Text>
-            </View>
-          )}
-        </View>
+        <Text style={[styles.monthName, { color: isCurrent ? C.green : C.text0 }]}>
+          {MONTH_NAMES_RU[month]}
+        </Text>
         <Ionicons name="chevron-forward" size={16} color={C.text4} />
       </View>
 
-      {/* Mini heatmap */}
-      <View style={styles.heatmapGrid}>
-        {WEEKDAYS_SHORT_RU.map((d) => (
-          <Text key={d} style={[styles.weekdayLabel, { color: C.text5 }]}>
-            {d[0]}
+      <View style={styles.monthBody}>
+        {/* Left: mini heatmap */}
+        <View style={styles.heatmapGrid}>
+          {WEEKDAYS_SHORT_RU.map((d) => (
+            <Text key={d} style={[styles.weekdayLabel, { color: C.text5 }]} allowFontScaling={false}>
+              {d[0]}
+            </Text>
+          ))}
+          {cells.map((c, i) =>
+            c ? (
+              <HeatmapCell key={i} status={c.status} isToday={c.today} size={CELL} borderRadius={3} />
+            ) : (
+              <View key={i} style={styles.emptyCell} />
+            )
+          )}
+        </View>
+
+        {/* Right: stats */}
+        <View style={styles.monthStats}>
+          <Text style={[styles.statPct, { color: pctColor }]}>
+            {pct !== null ? `${pct}%` : '—'}
           </Text>
-        ))}
-        {cells.map((c, i) =>
-          c ? (
-            <HeatmapCell key={i} status={c.status} isToday={c.today} size={14} borderRadius={3} />
-          ) : (
-            <View key={i} style={styles.emptyCell} />
-          )
-        )}
+          <Text style={[styles.statCount, { color: C.text3 }]}>
+            {doneCount}/{dim} {pluralDays(dim)}
+          </Text>
+          {elapsedDays > 0 && (
+            <View style={styles.statMini}>
+              <Text style={[styles.statMiniText, { color: C.green }]}>✓{doneCount}</Text>
+              <Text style={[styles.statMiniText, { color: C.text4 }]}>—{missedCount}</Text>
+            </View>
+          )}
+        </View>
       </View>
     </Pressable>
   );
@@ -318,39 +320,59 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: 8,
   },
-  monthTitle: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
   monthName: {
     fontSize: 15,
     fontWeight: '700',
   },
-  pctBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 6,
+  monthBody: {
+    flexDirection: 'row',
+    gap: 12,
+    alignItems: 'flex-start',
   },
-  pctText: {
+  monthStats: {
+    flex: 1,
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+    paddingTop: CELL + GAP,
+  },
+  statPct: {
+    fontSize: 28,
+    fontWeight: '800',
+    fontVariant: ['tabular-nums'],
+    lineHeight: 32,
+  },
+  statCount: {
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: '500',
+    marginTop: 2,
+  },
+  statMini: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 6,
+  },
+  statMiniText: {
+    fontSize: 11,
+    fontWeight: '600',
+    fontVariant: ['tabular-nums'],
   },
   heatmapGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 2,
+    gap: GAP,
+    width: GRID_WIDTH,
   },
   weekdayLabel: {
-    width: 14,
+    width: CELL,
+    height: CELL,
     textAlign: 'center',
     fontSize: 8,
     fontWeight: '600',
-    paddingBottom: 2,
+    lineHeight: CELL,
   },
   emptyCell: {
-    width: 14,
-    height: 14,
+    width: CELL,
+    height: CELL,
   },
   legend: {
     flexDirection: 'row',

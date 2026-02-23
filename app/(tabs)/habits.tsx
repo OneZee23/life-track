@@ -1,13 +1,15 @@
-import { useState, useCallback, useEffect, memo } from 'react';
+import { useState, useCallback, useEffect, useMemo, useRef, memo } from 'react';
 import {
   View,
   Text,
   TextInput,
   Pressable,
   Alert,
-  KeyboardAvoidingView,
-  Platform,
   StyleSheet,
+  Platform,
+  Keyboard,
+  KeyboardAvoidingView,
+  Modal,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
@@ -28,6 +30,7 @@ import { useHabitsStore } from '@/store/useHabits';
 import { EMOJIS, MAX_HABITS, HABIT_NAME_LIMIT } from '@/utils/constants';
 import type { Habit } from '@/types';
 import type { Theme } from '@/utils/constants';
+import { useTabBarOverlap } from '@/hooks/useTabBarOverlap';
 
 /* ─── Habit cell (hooks must be called unconditionally) ─── */
 
@@ -104,6 +107,9 @@ const HabitCell = memo(function HabitCell({
               onChangeText={onEditNameChange}
               style={[styles.input, { backgroundColor: C.bg, borderColor: C.sep, color: C.text1 }]}
               autoFocus
+              returnKeyType="done"
+              onSubmitEditing={onSave}
+              blurOnSubmit
             />
             <Text style={[styles.charCount, { color: C.text4 }]}>
               {editName.length}/{HABIT_NAME_LIMIT}
@@ -182,6 +188,7 @@ export default function HabitsScreen() {
   const removeHabit = useHabitsStore((s) => s.remove);
   const reorderHabits = useHabitsStore((s) => s.reorder);
   const insets = useSafeAreaInsets();
+  const tabOverlap = useTabBarOverlap();
 
   // Add form
   const [adding, setAdding] = useState(false);
@@ -205,6 +212,13 @@ export default function HabitsScreen() {
     setAdding(false);
     setShowEmojiPicker(false);
   };
+
+  const cancelAdd = useCallback(() => {
+    setAdding(false);
+    setShowEmojiPicker(false);
+    setNewName('');
+    Keyboard.dismiss();
+  }, []);
 
   const handleSave = useCallback(async () => {
     const trimmed = editName.trim();
@@ -285,78 +299,10 @@ export default function HabitsScreen() {
 
   const keyExtractor = useCallback((item: Habit) => item.id, []);
 
-  const ListFooter = useCallback(() => (
+  // Footer: only "add" button or max text (form is rendered separately outside list)
+  const listFooter = useMemo(() => (
     <View style={styles.footer}>
-      {adding ? (
-        <Animated.View
-          entering={FadeInDown.duration(200)}
-          style={[styles.addForm, { backgroundColor: C.card }]}
-        >
-          <Text style={[styles.addFormLabel, { color: C.green }]}>
-            Новая привычка
-          </Text>
-          <View style={styles.formRow}>
-            <Pressable
-              style={[styles.emojiBtn, { backgroundColor: C.bg, borderColor: C.sep }]}
-              onPress={() => setShowEmojiPicker(!showEmojiPicker)}
-            >
-              <Text style={styles.emojiBtnText}>{newEmoji}</Text>
-            </Pressable>
-            <View style={styles.inputWrap}>
-              <TextInput
-                value={newName}
-                onChangeText={(t) => setNewName(t.slice(0, HABIT_NAME_LIMIT))}
-                placeholder="Название"
-                placeholderTextColor={C.text4}
-                style={[styles.input, { backgroundColor: C.bg, borderColor: C.sep, color: C.text1 }]}
-                autoFocus
-              />
-              <Text style={[styles.charCount, { color: C.text4 }]}>
-                {newName.length}/{HABIT_NAME_LIMIT}
-              </Text>
-            </View>
-          </View>
-          {showEmojiPicker && (
-            <EmojiGrid
-              selected={newEmoji}
-              onSelect={(e) => {
-                setNewEmoji(e);
-                setShowEmojiPicker(false);
-              }}
-              colors={C}
-            />
-          )}
-          <View style={styles.formActions}>
-            <Pressable
-              style={[
-                styles.actionBtn,
-                { backgroundColor: newName.trim() ? C.green : C.sep },
-              ]}
-              onPress={handleAdd}
-              disabled={!newName.trim()}
-            >
-              <Text
-                style={[
-                  styles.actionBtnTextWhite,
-                  { color: newName.trim() ? '#fff' : C.text4 },
-                ]}
-              >
-                Добавить
-              </Text>
-            </Pressable>
-            <Pressable
-              style={[styles.actionBtn, { backgroundColor: C.card, borderWidth: 1, borderColor: C.sep }]}
-              onPress={() => {
-                setAdding(false);
-                setShowEmojiPicker(false);
-                setNewName('');
-              }}
-            >
-              <Text style={[styles.actionBtnText, { color: C.text2 }]}>Отмена</Text>
-            </Pressable>
-          </View>
-        </Animated.View>
-      ) : habits.length < MAX_HABITS ? (
+      {adding ? null : habits.length < MAX_HABITS ? (
         <Pressable
           style={[styles.addBtn, { backgroundColor: C.greenLight }]}
           onPress={() => setAdding(true)}
@@ -371,35 +317,174 @@ export default function HabitsScreen() {
         </Text>
       )}
     </View>
-  ), [adding, newEmoji, newName, showEmojiPicker, C, habits.length]);
+  ), [adding, C, habits.length]);
 
   return (
     <View style={[styles.root, { backgroundColor: C.bg, paddingTop: insets.top }]}>
-      <KeyboardAvoidingView
-        style={styles.root}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      >
-        {/* Header */}
-        <View style={styles.header}>
-          <Text style={[styles.title, { color: C.text0 }]}>Привычки</Text>
-          <Text style={[styles.count, { color: C.text3 }]}>
-            {habits.length} из {MAX_HABITS}
+      {/* Header */}
+      <View style={styles.header}>
+        <Text style={[styles.title, { color: C.text0 }]}>Привычки</Text>
+        <Text style={[styles.count, { color: C.text3 }]}>
+          {habits.length} из {MAX_HABITS}
+        </Text>
+      </View>
+
+      {/* Habit list */}
+      <ReorderableList
+        data={habits}
+        renderItem={renderItem}
+        keyExtractor={keyExtractor}
+        onReorder={handleReorder}
+        shouldUpdateActiveItem
+        style={styles.listContainer}
+        contentContainerStyle={[styles.content, { paddingBottom: tabOverlap + 16 }]}
+        ListFooterComponent={listFooter}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      />
+
+      {/* iOS: form below list with KeyboardAvoidingView */}
+      {adding && Platform.OS === 'ios' && (
+        <KeyboardAvoidingView
+          behavior="padding"
+          keyboardVerticalOffset={0}
+        >
+          <AddFormPanel
+            C={C}
+            newEmoji={newEmoji}
+            newName={newName}
+            showEmojiPicker={showEmojiPicker}
+            onEmojiToggle={() => setShowEmojiPicker(!showEmojiPicker)}
+            onEmojiSelect={(e) => { setNewEmoji(e); setShowEmojiPicker(false); }}
+            onNameChange={(t) => setNewName(t.slice(0, HABIT_NAME_LIMIT))}
+            onAdd={handleAdd}
+            onCancel={cancelAdd}
+          />
+        </KeyboardAvoidingView>
+      )}
+
+      {/* Android: Modal — creates a new native window where adjustResize works */}
+      {Platform.OS === 'android' && (
+        <Modal
+          visible={adding}
+          transparent
+          animationType="fade"
+          statusBarTranslucent
+          onRequestClose={cancelAdd}
+        >
+          <View style={styles.modalContainer}>
+            <Pressable style={styles.modalBackdrop} onPress={cancelAdd} />
+            <AddFormPanel
+              C={C}
+              newEmoji={newEmoji}
+              newName={newName}
+              showEmojiPicker={showEmojiPicker}
+              onEmojiToggle={() => setShowEmojiPicker(!showEmojiPicker)}
+              onEmojiSelect={(e) => { setNewEmoji(e); setShowEmojiPicker(false); }}
+              onNameChange={(t) => setNewName(t.slice(0, HABIT_NAME_LIMIT))}
+              onAdd={handleAdd}
+              onCancel={cancelAdd}
+            />
+          </View>
+        </Modal>
+      )}
+    </View>
+  );
+}
+
+/* ─── Add form panel (shared between iOS inline + Android modal) ─── */
+
+function AddFormPanel({
+  C,
+  newEmoji,
+  newName,
+  showEmojiPicker,
+  onEmojiToggle,
+  onEmojiSelect,
+  onNameChange,
+  onAdd,
+  onCancel,
+}: {
+  C: Theme;
+  newEmoji: string;
+  newName: string;
+  showEmojiPicker: boolean;
+  onEmojiToggle: () => void;
+  onEmojiSelect: (e: string) => void;
+  onNameChange: (t: string) => void;
+  onAdd: () => void;
+  onCancel: () => void;
+}) {
+  const inputRef = useRef<TextInput>(null);
+
+  // autoFocus doesn't work reliably inside Android Modal — focus manually
+  useEffect(() => {
+    const timer = setTimeout(() => inputRef.current?.focus(), 100);
+    return () => clearTimeout(timer);
+  }, []);
+
+  return (
+    <View style={[styles.addFormPanel, { backgroundColor: C.card, borderTopColor: C.sep }]}>
+      <Text style={[styles.addFormLabel, { color: C.green }]}>
+        Новая привычка
+      </Text>
+      <View style={styles.formRow}>
+        <Pressable
+          style={[styles.emojiBtn, { backgroundColor: C.bg, borderColor: C.sep }]}
+          onPress={onEmojiToggle}
+        >
+          <Text style={styles.emojiBtnText}>{newEmoji}</Text>
+        </Pressable>
+        <View style={styles.inputWrap}>
+          <TextInput
+            ref={inputRef}
+            value={newName}
+            onChangeText={onNameChange}
+            placeholder="Название"
+            placeholderTextColor={C.text4}
+            style={[styles.input, { backgroundColor: C.bg, borderColor: C.sep, color: C.text1 }]}
+            autoFocus
+            returnKeyType="done"
+            onSubmitEditing={onAdd}
+            blurOnSubmit={false}
+          />
+          <Text style={[styles.charCount, { color: C.text4 }]}>
+            {newName.length}/{HABIT_NAME_LIMIT}
           </Text>
         </View>
-
-        <ReorderableList
-          data={habits}
-          renderItem={renderItem}
-          keyExtractor={keyExtractor}
-          onReorder={handleReorder}
-          shouldUpdateActiveItem
-          style={styles.listContainer}
-          contentContainerStyle={styles.content}
-          ListFooterComponent={ListFooter}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
+      </View>
+      {showEmojiPicker && (
+        <EmojiGrid
+          selected={newEmoji}
+          onSelect={onEmojiSelect}
+          colors={C}
         />
-      </KeyboardAvoidingView>
+      )}
+      <View style={styles.formActions}>
+        <Pressable
+          style={[
+            styles.actionBtn,
+            { backgroundColor: newName.trim() ? C.green : C.sep },
+          ]}
+          onPress={onAdd}
+          disabled={!newName.trim()}
+        >
+          <Text
+            style={[
+              styles.actionBtnTextWhite,
+              { color: newName.trim() ? '#fff' : C.text4 },
+            ]}
+          >
+            Добавить
+          </Text>
+        </Pressable>
+        <Pressable
+          style={[styles.actionBtn, { backgroundColor: C.card, borderWidth: 1, borderColor: C.sep }]}
+          onPress={onCancel}
+        >
+          <Text style={[styles.actionBtnText, { color: C.text2 }]}>Отмена</Text>
+        </Pressable>
+      </View>
     </View>
   );
 }
@@ -461,7 +546,6 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingHorizontal: 16,
-    paddingBottom: 120,
     maxWidth: 600,
     width: '100%',
     alignSelf: 'center',
@@ -506,9 +590,18 @@ const styles = StyleSheet.create({
   editForm: {
     padding: 14,
   },
-  addForm: {
-    borderRadius: 14,
+  modalContainer: {
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.3)',
+  },
+  addFormPanel: {
     padding: 14,
+    paddingHorizontal: 16,
+    borderTopWidth: 0.5,
   },
   addFormLabel: {
     fontSize: 13,

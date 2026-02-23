@@ -10,6 +10,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useThemeStore } from '@/store/useTheme';
 import { Confetti } from '@/components/Confetti';
+import { pluralDays } from '@/utils/dates';
 
 interface Props {
   streak: number;
@@ -59,7 +60,7 @@ export function StreakCelebration({ streak, onDismiss }: Props) {
             <Text style={styles.emoji}>{streakEmoji(streak)}</Text>
             <Text style={[styles.count, { color: C.green }]}>{streak}</Text>
             <Text style={[styles.label, { color: C.text1 }]}>
-              {streak === 1 ? 'день подряд' : streak < 5 ? 'дня подряд' : 'дней подряд'}
+              {pluralDays(streak)} подряд
             </Text>
             <Animated.Text
               entering={FadeIn.delay(400).duration(300)}

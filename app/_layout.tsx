@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { SQLiteProvider } from 'expo-sqlite';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { Slot } from 'expo-router';
+import { Stack } from 'expo-router';
 import { View, ActivityIndicator, StyleSheet, useColorScheme } from 'react-native';
 import { runMigrations } from '@/db/migrations';
 import { useThemeStore } from '@/store/useTheme';
@@ -49,13 +49,23 @@ function StoreInitializer({ children }: { children: React.ReactNode }) {
 
 export default function RootLayout() {
   const dark = useThemeStore((s) => s.dark);
+  const C = useThemeStore((s) => s.colors);
 
   return (
     <GestureHandlerRootView style={styles.root}>
       <SQLiteProvider databaseName="lifetrack.db" onInit={runMigrations}>
         <StoreInitializer>
           <StatusBar style={dark ? 'light' : 'dark'} />
-          <Slot />
+          <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: C.bg } }}>
+            <Stack.Screen name="(tabs)" />
+            <Stack.Screen
+              name="settings"
+              options={{
+                presentation: 'card',
+                animation: 'slide_from_right',
+              }}
+            />
+          </Stack>
         </StoreInitializer>
       </SQLiteProvider>
     </GestureHandlerRootView>
