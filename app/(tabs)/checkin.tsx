@@ -26,6 +26,8 @@ import { Confetti } from '@/components/Confetti';
 import { StreakCelebration } from '@/components/StreakCelebration';
 import { yesterday, monthGenitive, formatDate, WEEKDAYS_FULL_RU, dayOfWeek } from '@/utils/dates';
 import { useTabBarOverlap } from '@/hooks/useTabBarOverlap';
+import { useUpdateAvailable } from '@/hooks/useUpdateAvailable';
+import { UpdateBanner } from '@/components/UpdateBanner';
 
 export default function CheckInScreen() {
   const C = useThemeStore((s) => s.colors);
@@ -36,6 +38,7 @@ export default function CheckInScreen() {
   const insets = useSafeAreaInsets();
   const tabOverlap = useTabBarOverlap();
   const router = useRouter();
+  const { available: updateAvailable, url: storeUrl } = useUpdateAvailable();
 
   const [dateStr, setDateStr] = useState(() => formatDate(yesterday()));
   const y = yesterday();
@@ -234,6 +237,12 @@ export default function CheckInScreen() {
               Изменить
             </Text>
           </Pressable>
+
+          {updateAvailable && storeUrl && (
+            <View style={{ marginTop: 20, width: '100%' }}>
+              <UpdateBanner storeUrl={storeUrl} />
+            </View>
+          )}
         </ScrollView>
       ) : (
         /* ─── Check-in state ─── */
@@ -283,6 +292,8 @@ export default function CheckInScreen() {
             >
               <Text style={styles.doneBtnText}>Готово ✓</Text>
             </Pressable>
+
+            {updateAvailable && storeUrl && <UpdateBanner storeUrl={storeUrl} />}
           </View>
         </>
       )}

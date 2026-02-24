@@ -1,7 +1,7 @@
 # LifeTrack — Техническое решение
 
-> **Версия:** 2.1 (бинарная система)
-> **К PRD:** v3.0
+> **Версия:** 2.2
+> **К PRD:** v3.1
 > **Статус:** v0.1.0 MVP — реализовано
 > **Обновлено:** Февраль 2026
 
@@ -31,15 +31,17 @@ Offline-first мобильное приложение. Бинарный трек
 
 | Слой | Технология | Зачем |
 |------|-----------|-------|
-| Runtime | React Native + Expo SDK 52 | New Architecture (Fabric, Hermes) |
-| Язык | TypeScript | Типизация |
+| Runtime | React Native + Expo SDK 54 | New Architecture (Fabric, Hermes) |
+| Язык | TypeScript 5.9 | Типизация |
 | State | Zustand v5 | Минимальный бойлерплейт |
 | Хранение | expo-sqlite | Быстрые запросы по датам |
-| Анимации | react-native-reanimated 3 | Spring-easing, layout animations |
-| Жесты | react-native-gesture-handler | Tap, Pan, drag для reorder |
+| Анимации | react-native-reanimated 4 | Spring-easing, layout animations, Worklets |
+| Жесты | react-native-gesture-handler 2 | Tap, Pan, drag для reorder |
 | Haptic | expo-haptics | Тактильный фидбек при тапе |
-| Навигация | Expo Router | File-based routing |
-| Drag & Drop | react-native-draggable-flatlist | Reorder привычек |
+| Навигация | Expo Router 6 | File-based routing |
+| Drag & Drop | react-native-reorderable-list | Reorder привычек (long-press) |
+| Иконки | @expo/vector-icons (Ionicons) | UI иконки |
+| Blur | expo-blur | iOS tab bar blur effect |
 | Сборка | EAS Build | Облачная компиляция |
 
 ### 1.3. Структура проекта
@@ -49,9 +51,10 @@ lifetrack/
 ├── app/
 │   ├── _layout.tsx              # Root layout + SQLite provider + StoreInitializer
 │   ├── index.tsx                # Entry → redirect to /(tabs)/checkin
+│   ├── settings.tsx             # Настройки (отдельный экран, slide_from_right)
 │   └── (tabs)/
 │       ├── _layout.tsx          # Tab navigator (checkin, progress, habits)
-│       ├── checkin.tsx          # Бинарный чек-ин + confetti + settings
+│       ├── checkin.tsx          # Бинарный чек-ин + confetti + update banner
 │       ├── progress.tsx         # Drill-down прогресс + swipe + filters
 │       └── habits.tsx           # CRUD + drag & drop reorder
 ├── components/
@@ -61,25 +64,29 @@ lifetrack/
 │   ├── ProgressMonth.tsx        # Календарная сетка + streaks
 │   ├── ProgressWeek.tsx         # Разбивка по привычкам
 │   ├── ProgressDay.tsx          # Детальный вид дня
-│   ├── Settings.tsx             # О проекте, обратная связь, тема, ссылки
+│   ├── UpdateBanner.tsx         # Баннер обновления (голубой, full-width)
 │   ├── Confetti.tsx             # Анимация при сохранении
+│   ├── StreakCelebration.tsx     # Модалка при достижении серии
 │   └── ui/
-│       ├── Chip.tsx             # Фильтр-чип (dimmed + dismiss для удаленных)
-│       ├── NavHeader.tsx        # Заголовок экрана
+│       ├── Chip.tsx             # Фильтр-чип (dimmed + dismiss для удалённых)
+│       ├── NavHeader.tsx        # Заголовок с навигацией ←/→
 │       └── BackBtn.tsx          # Кнопка назад
 ├── store/
 │   ├── useHabits.ts             # habits[] + allHabits[] + CRUD + soft-delete
-│   ├── useCheckins.ts           # data{} + toggle + saveDay + loadDateRange
+│   ├── useCheckins.ts           # data{} + saveDay + loadDateRange + getStreak
 │   └── useTheme.ts              # dark/light + colors palette
+├── hooks/
+│   ├── useTabBarOverlap.ts      # Padding для iOS tab bar (absolute positioned)
+│   └── useUpdateAvailable.ts    # Проверка версии в App Store / Play Store
 ├── db/
 │   ├── schema.ts                # SQL определения таблиц
 │   ├── migrations.ts            # Версионные миграции (v1-v3)
-│   └── queries.ts               # Все SQL-запросы с updated_at
+│   └── queries.ts               # Все SQL-запросы
 ├── utils/
-│   ├── dates.ts                 # Русская локализация дат
-│   └── constants.ts             # Цвета, темы, эмодзи, дефолты
+│   ├── dates.ts                 # Русская локализация дат + pluralDays()
+│   └── constants.ts             # Цвета, темы, эмодзи
 └── types/
-    └── index.ts                 # Habit, Checkin, DayData, DayStatus
+    └── index.ts                 # Habit, Checkin, DayStatus
 ```
 
 ---
@@ -152,13 +159,7 @@ interface Checkin {
     value: 0 | 1;
 }
 
-interface DayData {
-    date: string;
-    checkins: Record<string, 0 | 1>;  // habitId → 0|1
-    doneCount: number;
-    totalCount: number;
-}
-
+// DayStatus используется для цветовой кодировки ячеек прогресса
 type DayStatus =
     | null              // нет данных / будущее
     | 'all'             // все привычки done
@@ -169,7 +170,7 @@ type DayStatus =
 ### 2.4. Zustand Stores
 
 ```typescript
-// useHabits.ts — два списка: активные и все (включая удаленные)
+// useHabits.ts — два списка: активные и все (включая удалённые)
 interface HabitsStore {
     habits: Habit[];          // только активные (для чек-ина)
     allHabits: Habit[];       // все включая deleted (для прогресса)
@@ -182,12 +183,11 @@ interface HabitsStore {
 
 // useCheckins.ts — данные чек-инов с батч-сохранением
 interface CheckinsStore {
-    data: Record<string, Record<string, 0 | 1>>;
-    toggle: (date: string, habitId: string) => void;   // optimistic UI
-    saveDay: (date: string, values: Record<string, 0 | 1>) => Promise<void>;  // Promise.all
-    loadDate: (date: string) => Promise<void>;
+    data: Record<string, Record<string, 0 | 1>>;  // date → habitId → 0|1
+    saveDay: (date: string, values: Record<string, boolean>) => Promise<void>;
+    loadDate: (date: string) => Promise<Record<string, 0 | 1>>;
     loadDateRange: (from: string, to: string) => Promise<void>;
-    getDayStatus: (date: string, habitId?: string) => DayStatus;
+    getStreak: () => Promise<number>;
 }
 
 // useTheme.ts — тема с персистом в preferences
@@ -208,18 +208,15 @@ interface ThemeStore {
 Один тап = переключение. Spring-анимация + haptic.
 
 ```typescript
-const HabitToggle = ({ habit, done, onToggle }: Props) => {
-    // Gesture.Tap() — мгновенный отклик, без задержки 300ms
-    // scale(0.97) при нажатии, withSpring при отпускании
-    // withTiming 250ms для перехода цвета
-    // Haptic Light при каждом тапе
-    // Галочка: pop-эффект (scale bounce)
-};
+// scale(0.97) при нажатии, withSpring при отпускании
+// interpolateColor для плавного перехода фона серый → зелёный
+// Haptic Light при каждом тапе
+// Стагированный FadeInUp.delay(index * 50) при первом рендере
 ```
 
 ### 3.2. Progress — drill-down + свайп
 
-Навигация: Год → Месяц → Неделя → День. Реализована через внутренний state (level + выбранные period).
+Навигация: Год → Месяц → Неделя → День. Реализована через внутренний state (level + выбранный period).
 
 ```typescript
 // Свайп между периодами через Gesture.Pan
@@ -227,18 +224,50 @@ const swipeGesture = Gesture.Pan()
     .activeOffsetX([-30, 30])     // порог горизонтального свайпа
     .failOffsetY([-15, 15])       // не конфликтует с вертикальным скроллом
     .onEnd((e) => {
-        runOnJS(handleSwipeEnd)(e.translationX);  // UI thread → JS thread
+        runOnJS(handleSwipeEnd)(e.translationX);
     });
 ```
 
 Фильтрация по привычкам:
 - Активные привычки — обычные чипы
-- Удаленные привычки — серые чипы (dimmed) с кнопкой dismiss
-- Сортировка: активные первые, удаленные последние
+- Удалённые привычки — серые чипы (dimmed) с кнопкой dismiss
+- Сортировка: активные первые, удалённые последние
 
-### 3.3. Settings
+### 3.3. UpdateBanner — баннер обновления
 
-ScrollView с секциями: "О проекте" (about card), "Обратная связь" (ссылка на @onezee123), "Ссылки" (TG канал, YouTube), версия.
+Показывается на главном экране (чекин) если в App Store / Google Play доступна более новая версия.
+
+```typescript
+// hooks/useUpdateAvailable.ts
+// - Запрашивает iTunes Search API раз за сессию приложения
+// - Кэш на уровне модуля (не AsyncStorage) — сбрасывается при перезапуске
+// - Сравнивает semver: compareVersions(current, store)
+// - Таймаут 5 сек через AbortController
+// - При ошибке сети — молча { available: false }
+// - iOS: trackViewUrl из API; Android: Play Store URL
+
+// components/UpdateBanner.tsx
+// - FadeIn анимация при появлении
+// - Голубой фон (C.blue + '18' = ~9% opacity)
+// - Ionicons 'cloud-download-outline' + текст "Доступно обновление"
+// - onPress → Linking.openURL(storeUrl)
+// - Рендерится в двух местах: активный чекин (bottomBar) и saved state (ScrollView)
+```
+
+### 3.4. pluralDays — русское склонение
+
+```typescript
+// utils/dates.ts
+export function pluralDays(n: number): string {
+    const mod10 = n % 10;
+    const mod100 = n % 100;
+    if (mod10 === 1 && mod100 !== 11) return 'день';
+    if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return 'дня';
+    return 'дней';
+}
+// 1 → день, 2 → дня, 5 → дней, 11 → дней, 21 → день, 31 → день
+// Используется: ProgressYear (summary), ProgressYear (MonthCard), ProgressMonth (streaks), StreakCelebration
+```
 
 ---
 
@@ -248,7 +277,7 @@ ScrollView с секциями: "О проекте" (about card), "Обратн�
 
 ```
 1. SQLite Provider → runMigrations (v1 → v2 → v3)
-2. StoreInitializer → theme.loadFromDb + habits.loadFromDb + checkins.loadDate
+2. StoreInitializer → theme.loadFromDb + habits.loadFromDb + checkins._db init
 3. UI Ready → показываем экран чек-ина
 ```
 
@@ -262,15 +291,14 @@ StoreInitializer имеет:
 
 ### 5.1. Optimistic Updates
 
-- **toggle:** Немедленно обновляет UI, сохраняет в БД асинхронно
 - **reorder:** Оптимистично переставляет, при ошибке — revert к предыдущему состоянию
 - **saveDay:** `Promise.all` вместо последовательных awaits (fix N+1)
 
 ### 5.2. Soft-Delete
 
 Привычки не удаляются из БД — ставится `deleted_at`. Это позволяет:
-- Сохранять историю чек-инов удаленных привычек
-- Показывать удаленные привычки в прогрессе (серые фильтр-чипы)
+- Сохранять историю чек-инов удалённых привычек
+- Показывать удалённые привычки в прогрессе (серые фильтр-чипы)
 - Восстанавливать привычки в будущем
 
 ### 5.3. Подготовка к синхронизации
@@ -280,25 +308,39 @@ MVP полностью оффлайн, но схема готова к online-fi
 - `device_id` — идентификация устройства для мерж-логики
 - Все мутации проходят через единые query-функции
 
+### 5.4. Platform-специфика
+
+```typescript
+// iOS: tab bar absolute positioned + blur (expo-blur)
+// Android: tab bar в layout flow, без blur
+// iOS: KeyboardAvoidingView inline при добавлении привычки
+// Android: Modal overlay при добавлении привычки
+// useTabBarOverlap() — хук для расчёта нижнего padding под таббар на iOS
+```
+
 ---
 
 ## 6. Темизация
 
-Бинарная палитра: один акцентный цвет (iOS Green #34C759) + серый для пропуска.
+Бинарная палитра: один акцентный цвет (iOS Green #34C759) + голубой для системных действий (обновление).
 
 ```typescript
 const themes = {
     light: {
-        bg: '#F2F2F7', card: '#FFFFFF',
+        bg: '#F2F2F7',    card: '#FFFFFF',
         text0: '#000000', text3: '#8E8E93',
-        green: '#34C759', greenBg: '#E8F9ED',
+        green: '#34C759', greenLight: '#E8F9ED',
+        blue: '#007AFF',
         emptyCell: '#EBEBF0',
+        segBg: 'rgba(118,118,128,0.12)',
     },
     dark: {
-        bg: '#000000', card: '#1C1C1E',
+        bg: '#000000',    card: '#1C1C1E',
         text0: '#FFFFFF', text3: '#8E8E93',
-        green: '#34C759', greenBg: 'rgba(52,199,89,0.15)',
+        green: '#34C759', greenLight: 'rgba(52,199,89,0.15)',
+        blue: '#0A84FF',
         emptyCell: '#2C2C2E',
+        segBg: 'rgba(118,118,128,0.24)',
     }
 };
 ```
@@ -308,7 +350,7 @@ const themes = {
 ## 7. Сборка и деплой
 
 ```
-EAS Build (cloud) → .ipa → EAS Submit → App Store Connect → App Review
+EAS Build (cloud) → .ipa / .aab → EAS Submit → App Store Connect / Google Play → Review
 ```
 
 | Конфиг | Значение |
@@ -318,6 +360,7 @@ EAS Build (cloud) → .ipa → EAS Submit → App Store Connect → App Review
 | ASC App ID | 6759284836 |
 | Build profile | production (autoIncrement) |
 | Min iOS | 15.0 |
+| Min Android | API 29 (Android 10) |
 
 ---
 
@@ -327,9 +370,11 @@ EAS Build (cloud) → .ipa → EAS Submit → App Store Connect → App Review
 |---|--------|--------|
 | 1 | Онлайн-синхронизация | Схема готова (updated_at, device_id). Реализация в v0.2.0 |
 | 2 | Редактирование прошлых дней | v0.2.0 — за последние 7 дней |
-| 3 | Расширение до шкалы | v0.3.0 — опциональный "продвинутый режим" |
-| 4 | Android | Билд и деплой в Google Play |
+| 3 | Адаптивность на малых/больших экранах | Планируется до публикации |
+| 4 | Клавиатура при создании привычки (Android) | Планируется до публикации |
+| 5 | Иконка на Android (слишком маленькая) | Планируется до публикации |
+| 6 | Расширение до шкалы | v0.3.0 — опциональный "продвинутый режим" |
 
 ---
 
-> MVP реализован и отправлен на ревью в App Store (февраль 2026).
+> MVP реализован. iOS — на ревью в App Store. Android — закрытое тестирование Google Play (февраль 2026).
