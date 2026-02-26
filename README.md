@@ -1,8 +1,10 @@
-# LifeTrack
+# LifeTrack — Android
 
-> Minimalist daily habit tracker — did you do it or not?
+> Минималистичный трекер привычек для Android. Делал или не делал?
 
-**Status:** v0.1.1 | iOS App Store (on review) | **Started:** Feb 2026
+**Platform:** Android (Google Play)
+**Status:** v0.1.1 | **Started:** Feb 2026
+**iOS версия:** [life-track-ios](https://github.com/OneZee23/life-track-ios) (SwiftUI)
 
 ---
 
@@ -89,17 +91,17 @@ Your data becomes a heatmap. Green = did something. Gray = didn't. Today pulses 
 ## Tech Stack
 
 ```
-Framework:   React Native + Expo SDK 52 (New Architecture)
+Framework:   React Native + Expo SDK 54 (New Architecture)
 Language:    TypeScript
 State:       Zustand v5
-Storage:     SQLite (expo-sqlite) with versioned migrations
+Storage:     SQLite (expo-sqlite) с версионными миграциями
 Animations:  React Native Reanimated 3
 Gestures:    react-native-gesture-handler (Tap + Pan)
 Haptics:     expo-haptics
 Navigation:  Expo Router (file-based)
-Build:       EAS Build (cloud)
-Platform:    iOS 15+
-Backend:     None (local-only MVP)
+Build:       EAS Build → Google Play
+Platform:    Android
+Backend:     None (local-only)
 ```
 
 ---
@@ -164,30 +166,31 @@ All data stored locally on device. No network requests.
 ### Prerequisites
 
 - Node.js 18+
-- Expo CLI
-- iOS Simulator (macOS)
+- Android Studio (эмулятор) или физический Android-девайс
 
 ### Development
 
 ```bash
-git clone https://github.com/OneZee23/life-track.git
-cd life-track
+git clone https://github.com/OneZee23/life-track-android.git
+cd life-track-android
 
 npm install
-npx expo start
+npm run dev       # запуск на Android эмуляторе / девайсе
 
-# Press 'i' to open in iOS Simulator
-# Press 'shift+i' to pick a specific simulator
+# Или через Expo Go на девайсе — отсканируй QR из терминала
 ```
 
-### Building
+### Build & Submit Scripts
 
 ```bash
-# Production build
-eas build --platform ios --profile production
+npm run build            # EAS production build → .aab для Google Play
+npm run build:preview    # EAS preview build → .apk для тестирования
+npm run build:dev        # EAS development build
 
-# Submit to App Store
-eas submit --platform ios --latest
+npm run submit           # отправить последний build в Google Play (alpha)
+npm run release          # build + submit одной командой
+
+npm run builds           # список всех EAS builds
 ```
 
 ---
@@ -235,10 +238,10 @@ eas submit --platform ios --latest
 
 ### v0.2.0 (planned)
 
-- [ ] Push notifications (daily reminder)
-- [ ] Onboarding (2-3 screens)
-- [ ] iOS widget (today's streak)
-- [ ] Data export (CSV/JSON)
+- [ ] Push уведомления (ежедневное напоминание)
+- [ ] Онбординг (2-3 экрана)
+- [ ] Android widget (сегодняшний стрик)
+- [ ] Экспорт данных (CSV/JSON)
 - [ ] English localization
 
 ### v0.3.0 (ideas)

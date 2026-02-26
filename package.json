@@ -3,21 +3,20 @@
   "version": "1.0.0",
   "main": "expo-router/entry",
   "scripts": {
-    "start": "expo start",
-    "ios": "expo start --ios",
-    "android": "expo start --android",
+    "start": "expo start --android",
+    "dev": "expo start --android",
     "lint": "tsc --noEmit",
-    "build": "eas build --platform ios --profile production",
-    "build:preview": "eas build --platform ios --profile preview",
-    "submit": "eas submit --platform ios --latest",
-    "release": "eas build --platform ios --profile production && eas submit --platform ios --latest",
-    "build:android": "eas build --platform android --profile production",
-    "submit:android": "eas submit --platform android --latest",
-    "release:android": "eas build --platform android --profile production && eas submit --platform android --latest",
-    "build:all": "eas build --platform all --profile production",
-    "release:all": "eas build --platform all --profile production && eas submit --platform all --latest",
-    "builds": "eas build:list",
-    "reset": "expo start --clear"
+    "reset": "expo start --clear",
+
+    "build": "eas build --platform android --profile production",
+    "build:preview": "eas build --platform android --profile preview",
+    "build:dev": "eas build --platform android --profile development",
+
+    "submit": "eas submit --platform android --latest",
+
+    "release": "eas build --platform android --profile production && eas submit --platform android --latest",
+
+    "builds": "eas build:list"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",

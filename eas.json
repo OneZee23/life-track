@@ -7,20 +7,17 @@
     "development": {
       "developmentClient": true,
       "distribution": "internal",
-      "ios": {
-        "simulator": true
+      "android": {
+        "buildType": "apk"
       }
     },
     "preview": {
       "distribution": "internal",
-      "ios": {
-        "simulator": false
+      "android": {
+        "buildType": "apk"
       }
     },
     "production": {
-      "ios": {
-        "autoIncrement": true
-      },
       "android": {
         "autoIncrement": true,
         "buildType": "app-bundle"
@@ -29,13 +26,10 @@
   },
   "submit": {
     "production": {
-      "ios": {
-        "ascAppId": "6759284836"
-      },
       "android": {
         "serviceAccountKeyPath": "./play-service-account.json",
-        "track": "internal",
-        "releaseStatus": "draft"
+        "track": "alpha",
+        "releaseStatus": "completed"
       }
     }
   }

@@ -2,24 +2,17 @@
   "expo": {
     "name": "LifeTrack",
     "slug": "lifetrack",
-    "version": "0.1.0",
+    "version": "0.1.1",
     "scheme": "lifetrack",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
+    "platforms": ["android"],
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
       "backgroundColor": "#F2F2F7"
-    },
-    "ios": {
-      "bundleIdentifier": "co.onezee.lifetrack",
-      "supportsTablet": true,
-      "infoPlist": {
-        "CFBundleAllowMixedLocalizations": true,
-        "ITSAppUsesNonExemptEncryption": false
-      }
     },
     "android": {
       "package": "co.onezee.lifetrack",
